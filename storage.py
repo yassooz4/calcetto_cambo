@@ -465,6 +465,58 @@ def save_voti(df_voti: pd.DataFrame) -> bool:
     return True
 
 
+def get_all_voti() -> pd.DataFrame:
+    """Restituisce l'intero DataFrame dei voti registrati."""
+    _, _, _, df_voti, _ = load_data()
+    return df_voti
+
+
+def delete_voto(id_voto: int) -> bool:
+    """
+    Elimina un singolo voto identificato da id_voto e aggiorna lo storage (GSheets o CSV).
+    Svuota la cache per garantire il ricalcolo immediato delle medie e dell'MVP.
+    """
+    _, _, _, df_voti, _ = load_data()
+    if df_voti.empty or "id_voto" not in df_voti.columns:
+        return False
+    
+    df_updated = df_voti[df_voti["id_voto"].astype(str) != str(id_voto)].copy()
+    return save_voti(df_updated)
+
+
+def delete_voti_partita(id_partita: int) -> bool:
+    """
+    Elimina tutti i voti associati a una determinata partita.
+    """
+    _, _, _, df_voti, _ = load_data()
+    if df_voti.empty or "id_partita" not in df_voti.columns:
+        return False
+        
+    df_updated = df_voti[df_voti["id_partita"].astype(str) != str(id_partita)].copy()
+    return save_voti(df_updated)
+
+
+def update_partita(id_partita: int, updated_data: dict) -> bool:
+    """
+    Aggiorna i campi di una partita esistente identificata da id_partita
+    (data, squadre, gol, esito, marcatori) e persiste le modifiche.
+    """
+    _, df_partite, _, _, _ = load_data()
+    if df_partite.empty or "id_partita" not in df_partite.columns:
+        return False
+        
+    idx = df_partite[df_partite["id_partita"].astype(str) == str(id_partita)].index
+    if idx.empty:
+        return False
+        
+    df_up = df_partite.copy()
+    for col, val in updated_data.items():
+        if col in df_up.columns:
+            df_up.loc[idx, col] = val
+            
+    return save_partite(df_up)
+
+
 def reset_all_to_demo():
     """Ripristina tutti i dati ai valori di default/demo."""
     save_giocatori(pd.DataFrame(GIOCATORI_DEFAULT))

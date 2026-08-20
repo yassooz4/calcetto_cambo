@@ -247,24 +247,97 @@ def balance_teams(
 
 
 # ==============================================================================
-# 4. CLASSIFICA GENERALE RENDIMENTO
 # ==============================================================================
+# 4. CLASSIFICA GENERALE RENDIMENTO & STATISTICHE VOTI
+# ==============================================================================
+def calculate_player_vote_stats(
+    df_partite: pd.DataFrame, 
+    df_voti: pd.DataFrame,
+    giocatori_filtrati: Optional[List[str]] = None
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Calcola per ciascun giocatore le metriche aggregate dei voti:
+    - Titoli MVP (numero di volte in cui è risultato MVP del match)
+    - Titoli Peggiore (numero di volte in cui è risultato peggiore in campo)
+    - Media Voto Pagelle (media aritmetica complessiva di tutti i voti ricevuti)
+    - Totale Voti Ricevuti
+    """
+    stats: Dict[str, Dict[str, Any]] = {}
+    filter_set = set(str(p).strip() for p in giocatori_filtrati if str(p).strip()) if giocatori_filtrati is not None else None
+
+    if df_voti is None or df_voti.empty or "voto" not in df_voti.columns:
+        return stats
+
+    df_clean_voti = df_voti.copy()
+    df_clean_voti["voto"] = pd.to_numeric(df_clean_voti["voto"], errors="coerce")
+    df_clean_voti = df_clean_voti.dropna(subset=["voto"])
+
+    mvp_counts: Dict[str, int] = {}
+    worst_counts: Dict[str, int] = {}
+
+    if not df_partite.empty and "id_partita" in df_partite.columns:
+        for p_id in df_partite["id_partita"].unique():
+            res = calculate_match_ratings(df_clean_voti, p_id)
+            if res["has_votes"]:
+                if res["mvp"] and res["mvp"].get("giocatore"):
+                    m_name = str(res["mvp"]["giocatore"]).strip()
+                    mvp_counts[m_name] = mvp_counts.get(m_name, 0) + 1
+                if res["worst"] and res["worst"].get("giocatore"):
+                    w_name = str(res["worst"]["giocatore"]).strip()
+                    if res["mvp"] and w_name != str(res["mvp"]["giocatore"]).strip():
+                        worst_counts[w_name] = worst_counts.get(w_name, 0) + 1
+
+    # Calcolo medie complessive per giocatore
+    if not df_clean_voti.empty and "giocatore" in df_clean_voti.columns:
+        for player_name, group in df_clean_voti.groupby("giocatore"):
+            p_str = str(player_name).strip()
+            if filter_set is not None and p_str not in filter_set:
+                continue
+            votes_series = group["voto"]
+            avg_rating = round(float(votes_series.mean()), 2)
+            total_v = int(votes_series.count())
+            stats[p_str] = {
+                "titoli_mvp": mvp_counts.get(p_str, 0),
+                "titoli_peggiore": worst_counts.get(p_str, 0),
+                "media_voto": avg_rating,
+                "totale_voti": total_v
+            }
+
+    # Assegna 0 e None per eventuali giocatori filtrati che non hanno voti
+    if filter_set is not None:
+        for p in filter_set:
+            if p not in stats:
+                stats[p] = {
+                    "titoli_mvp": mvp_counts.get(p, 0),
+                    "titoli_peggiore": worst_counts.get(p, 0),
+                    "media_voto": None,
+                    "totale_voti": 0
+                }
+
+    return stats
+
+
 def calculate_leaderboard(
     df_giocatori: pd.DataFrame, 
     df_partite: pd.DataFrame,
     elo_ratings: Optional[Dict[str, float]] = None,
-    giocatori_filtrati: Optional[List[str]] = None
+    giocatori_filtrati: Optional[List[str]] = None,
+    df_voti: Optional[pd.DataFrame] = None
 ) -> pd.DataFrame:
     """
     Calcola la classifica generale dei giocatori:
-    Punti (V*3 + P*1), Partite Giocate (PG), V, P, S, % Vittoria, ELO Attuale.
+    Punti (V*3 + P*1), Partite Giocate (PG), V, P, S, % Vittoria, ELO Attuale,
+    Titoli MVP, Titoli Peggiore, Media Voto Pagelle.
     Se passato 'giocatori_filtrati', include solo tali giocatori.
     """
     if elo_ratings is None:
         elo_ratings, _ = calculate_elo_ratings(df_giocatori, df_partite, giocatori_filtrati=giocatori_filtrati)
 
+    vote_stats = calculate_player_vote_stats(df_partite, df_voti, giocatori_filtrati=giocatori_filtrati) if df_voti is not None else {}
+
+    cols_default = ["Giocatore", "Punti", "PG", "V", "P", "S", "% Vittoria", "ELO", "Titoli MVP", "Titoli Peggiore", "Media Voto"]
     if df_giocatori.empty:
-        return pd.DataFrame(columns=["Giocatore", "Punti", "PG", "V", "P", "S", "% Vittoria", "ELO"])
+        return pd.DataFrame(columns=cols_default)
 
     filter_set = set(str(p).strip() for p in giocatori_filtrati if str(p).strip()) if giocatori_filtrati is not None else None
 
@@ -318,6 +391,11 @@ def calculate_leaderboard(
         win_rate = round((v / pg * 100), 1) if pg > 0 else 0.0
         current_elo = elo_ratings.get(player, 1500.0)
 
+        p_vote_info = vote_stats.get(player, {})
+        mvp_titles = p_vote_info.get("titoli_mvp", 0)
+        worst_titles = p_vote_info.get("titoli_peggiore", 0)
+        media_voto = p_vote_info.get("media_voto", None)
+
         rows.append({
             "Giocatore": player,
             "Punti": punti,
@@ -326,14 +404,17 @@ def calculate_leaderboard(
             "P": p,
             "S": sc,
             "% Vittoria": win_rate,
-            "ELO": round(current_elo, 1)
+            "ELO": round(current_elo, 1),
+            "Titoli MVP": mvp_titles,
+            "Titoli Peggiore": worst_titles,
+            "Media Voto": media_voto
         })
 
     df_res = pd.DataFrame(rows)
     if not df_res.empty:
         df_res = df_res.sort_values(
-            by=["Punti", "% Vittoria", "ELO", "PG", "Giocatore"],
-            ascending=[False, False, False, False, True]
+            by=["Punti", "% Vittoria", "ELO", "Titoli MVP", "PG", "Giocatore"],
+            ascending=[False, False, False, False, False, True]
         ).reset_index(drop=True)
 
     return df_res
