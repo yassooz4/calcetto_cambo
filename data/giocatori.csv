@@ -1,1 +1,13 @@
-id_giocatore,nome_completo,data_creazione
+id_giocatore,nome_completo,data_creazione,in_gruppo_ristretto
+1,Marco Rossi,2024-01-10,True
+2,Luca Bianchi,2024-01-10,True
+3,Matteo Ferrari,2024-01-10,True
+4,Alessandro Russo,2024-01-10,True
+5,Davide Colombo,2024-01-10,True
+6,Federico Ricci,2024-01-10,True
+7,Andrea Marino,2024-01-10,True
+8,Lorenzo Greco,2024-01-10,True
+9,Simone Bruno,2024-01-10,True
+10,Gabriele Gallo,2024-01-10,True
+11,Francesco Conti,2024-01-15,False
+12,Giovanni De Luca,2024-01-15,False

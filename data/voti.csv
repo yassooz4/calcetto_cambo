@@ -1,0 +1,4 @@
+id_voto,id_partita,votante,giocatore,voto,commento,timestamp
+1,1,Federico Ricci,Marco Rossi,8.5,Tripletta decisiva e grande visione di gioco!,2024-02-01 23:15:00
+2,1,Marco Rossi,Federico Ricci,8.0,"Migliore della sua squadra, sempre pericoloso.",2024-02-01 23:20:00
+3,1,Luca Bianchi,Gabriele Gallo,5.5,Un po' distratto sui ripiegamenti difensivi.,2024-02-01 23:25:00

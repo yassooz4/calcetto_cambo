@@ -1,41 +1,48 @@
 """
 ================================================================================
-CALCETTO STATS - Web Application per Statistiche di Calcetto tra Amici
-Stack: Streamlit, Pandas, gspread, google-auth
+CALCETTO STATS & MANAGER - Web Application
+Autenticazione PIN a doppio livello (Viewer 5678 / Admin 1234)
+Stack: Streamlit, Pandas, Google Sheets (gspread), Fallback CSV Locale
 ================================================================================
 """
 
 import os
+import json
 from datetime import date, datetime
 import pandas as pd
 import streamlit as st
 
-try:
-    import gspread
-    from google.oauth2.service_account import Credentials
-    GSPREAD_AVAILABLE = True
-except ImportError:
-    GSPREAD_AVAILABLE = False
+# Import dei moduli dedicati
+import logic
+import storage
 
 # ==============================================================================
-# CONFIGURAZIONE PAGINA & TEMA
+# 1. CONFIGURAZIONE PAGINA & CSS DARK THEME (MOBILE FIRST)
 # ==============================================================================
 st.set_page_config(
-    page_title="Calcetto Stats",
+    page_title="Calcetto Stats & Manager",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="auto"
 )
 
-# Custom CSS Mobile-First e Stile Moderno
 st.markdown("""
 <style>
-    /* Stili Globali */
+    /* Stili Globali Dark & Typography */
+    .main-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.8rem;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
     .main-title {
-        font-size: 1.8rem;
+        font-size: 1.85rem;
         font-weight: 800;
-        margin-bottom: 0.2rem;
         color: #10b981;
+        margin-bottom: 0.1rem;
+        letter-spacing: -0.5px;
     }
     .sub-title {
         font-size: 0.95rem;
@@ -43,37 +50,77 @@ st.markdown("""
         margin-bottom: 1.2rem;
     }
     
-    /* Card per storico partite */
+    /* Ruolo Badge */
+    .role-badge-admin {
+        display: inline-block;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 0.8rem;
+        padding: 4px 12px;
+        border-radius: 20px;
+        box-shadow: 0 2px 5px rgba(16, 185, 129, 0.3);
+    }
+    .role-badge-viewer {
+        display: inline-block;
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 0.8rem;
+        padding: 4px 12px;
+        border-radius: 20px;
+        box-shadow: 0 2px 5px rgba(59, 130, 246, 0.3);
+    }
+    .badge-circle {
+        display: inline-block;
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: #0f172a;
+        font-weight: 700;
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 12px;
+        box-shadow: 0 1px 4px rgba(245, 158, 11, 0.4);
+    }
+
+    /* Cards Personalizzate */
+    .glass-card {
+        background-color: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.3);
+    }
     .match-card {
         background-color: #1e293b;
         border-radius: 12px;
-        padding: 1rem;
-        margin-bottom: 1rem;
+        padding: 1rem 1.2rem;
+        margin-bottom: 1.1rem;
         border-left: 5px solid #10b981;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.25);
     }
     .match-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.6rem;
         font-weight: 600;
         font-size: 0.9rem;
         color: #94a3b8;
     }
     .match-score {
-        font-size: 1.4rem;
+        font-size: 1.45rem;
         font-weight: 800;
         text-align: center;
-        margin: 0.5rem 0;
+        margin: 0.6rem 0;
         color: #f8fafc;
     }
     .team-box {
-        font-size: 0.88rem;
-        line-height: 1.4;
+        font-size: 0.9rem;
+        line-height: 1.45;
         color: #cbd5e1;
     }
-    .team-title {
+    .team-title-a {
         font-weight: 700;
         color: #38bdf8;
     }
@@ -81,8 +128,25 @@ st.markdown("""
         font-weight: 700;
         color: #f43f5e;
     }
-    
-    /* Badge Forma */
+
+    /* MVP Card & Worst Card */
+    .card-mvp {
+        background: linear-gradient(135deg, #1e293b 0%, #1e1b4b 100%);
+        border: 2px solid #fbbf24;
+        border-radius: 12px;
+        padding: 1.2rem;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(251, 191, 36, 0.2);
+    }
+    .card-worst {
+        background: linear-gradient(135deg, #1e293b 0%, #450a0a 100%);
+        border: 1px solid #ef4444;
+        border-radius: 12px;
+        padding: 1.2rem;
+        text-align: center;
+    }
+
+    /* Badge Esito & Forma */
     .badge-v {
         display: inline-block;
         background-color: #10b981;
@@ -113,8 +177,8 @@ st.markdown("""
         margin: 2px;
         font-size: 0.85rem;
     }
-    
-    /* Mobile tweaks */
+
+    /* Mobile Responsive Tweaks */
     @media (max-width: 768px) {
         .main-title {
             font-size: 1.5rem;
@@ -128,447 +192,50 @@ st.markdown("""
 
 
 # ==============================================================================
-# COSTANTI & CONFIGURAZIONE AMBIENTE
+# 2. SISTEMA DI AUTENTICAZIONE & CONTROLLO ACCESSI (PIN GATE)
 # ==============================================================================
-PIN_CORRETTO = "5678"
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-CSV_GIOCATORI = os.path.join(DATA_DIR, "giocatori.csv")
-CSV_PARTITE = os.path.join(DATA_DIR, "partite.csv")
+PIN_VIEWER = "5678"
+PIN_ADMIN = "1234"
 
-# Dati di default per inizializzazione locale
-GIOCATORI_DEFAULT = [
-    {"id_giocatore": 1, "nome_completo": "Marco Rossi", "data_creazione": "2024-01-10"},
-    {"id_giocatore": 2, "nome_completo": "Luca Bianchi", "data_creazione": "2024-01-10"},
-    {"id_giocatore": 3, "nome_completo": "Matteo Ferrari", "data_creazione": "2024-01-10"},
-    {"id_giocatore": 4, "nome_completo": "Alessandro Russo", "data_creazione": "2024-01-10"},
-    {"id_giocatore": 5, "nome_completo": "Davide Colombo", "data_creazione": "2024-01-10"},
-    {"id_giocatore": 6, "nome_completo": "Federico Ricci", "data_creazione": "2024-01-10"},
-    {"id_giocatore": 7, "nome_completo": "Andrea Marino", "data_creazione": "2024-01-10"},
-    {"id_giocatore": 8, "nome_completo": "Lorenzo Greco", "data_creazione": "2024-01-10"},
-    {"id_giocatore": 9, "nome_completo": "Simone Bruno", "data_creazione": "2024-01-10"},
-    {"id_giocatore": 10, "nome_completo": "Gabriele Gallo", "data_creazione": "2024-01-10"},
-    {"id_giocatore": 11, "nome_completo": "Francesco Conti", "data_creazione": "2024-01-15"},
-    {"id_giocatore": 12, "nome_completo": "Giovanni De Luca", "data_creazione": "2024-01-15"},
-]
-
-PARTITE_DEFAULT = [
-    {
-        "id_partita": 1,
-        "data": "2024-02-01",
-        "squadra_a_giocatori": "Marco Rossi, Luca Bianchi, Matteo Ferrari, Alessandro Russo, Davide Colombo",
-        "squadra_b_giocatori": "Federico Ricci, Andrea Marino, Lorenzo Greco, Simone Bruno, Gabriele Gallo",
-        "gol_squadra_a": 7,
-        "gol_squadra_b": 5,
-        "esito": "Vittoria Squadra A"
-    },
-    {
-        "id_partita": 2,
-        "data": "2024-02-08",
-        "squadra_a_giocatori": "Marco Rossi, Luca Bianchi, Francesco Conti, Giovanni De Luca, Davide Colombo",
-        "squadra_b_giocatori": "Matteo Ferrari, Alessandro Russo, Andrea Marino, Lorenzo Greco, Gabriele Gallo",
-        "gol_squadra_a": 4,
-        "gol_squadra_b": 4,
-        "esito": "Pareggio"
-    }
-]
-
-
-# ==============================================================================
-# GESTIONE PERSISTENZA (GOOGLE SHEETS CON GSPREAD & FALLBACK LOCALE CSV)
-# ==============================================================================
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-]
-
-
-def get_gsheets_config():
-    """Recupera la configurazione e le credenziali di Google Sheets dai segreti di Streamlit."""
-    try:
-        if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
-            return dict(st.secrets["connections"]["gsheets"])
-        elif "gspread" in st.secrets:
-            return dict(st.secrets["gspread"])
-        elif "service_account" in st.secrets:
-            return dict(st.secrets["service_account"])
-    except Exception:
-        pass
-    return None
-
-
-def is_gsheets_configured() -> bool:
-    """Verifica se le credenziali di Google Sheets sono definite nei segreti di Streamlit."""
-    if not GSPREAD_AVAILABLE:
-        return False
-    cfg = get_gsheets_config()
-    return cfg is not None and len(cfg) > 0
-
-
-def get_gsheets_spreadsheet():
-    """Inizializza la connessione a Google Sheets tramite gspread e apre lo spreadsheet."""
-    if not is_gsheets_configured():
-        return None
-    try:
-        cfg = get_gsheets_config()
-        if not cfg:
-            return None
-        
-        spreadsheet_target = (
-            cfg.get("spreadsheet")
-            or cfg.get("spreadsheet_url")
-            or cfg.get("url")
-            or cfg.get("sheet_id")
-            or cfg.get("spreadsheet_name")
-        )
-        
-        sa_keys = [
-            "type", "project_id", "private_key_id", "private_key",
-            "client_email", "client_id", "auth_uri", "token_uri",
-            "auth_provider_x509_cert_url", "client_x509_cert_url", "universe_domain"
-        ]
-        sa_info = {k: cfg[k] for k in sa_keys if k in cfg}
-        
-        if "private_key" in sa_info and isinstance(sa_info["private_key"], str):
-            sa_info["private_key"] = sa_info["private_key"].replace("\\n", "\n")
-            
-        creds = Credentials.from_service_account_info(sa_info, scopes=SCOPES)
-        client = gspread.authorize(creds)
-        
-        if not spreadsheet_target:
-            return None
-            
-        spreadsheet_target = str(spreadsheet_target).strip()
-        if spreadsheet_target.startswith("http://") or spreadsheet_target.startswith("https://"):
-            return client.open_by_url(spreadsheet_target)
-        elif len(spreadsheet_target) > 30 and " " not in spreadsheet_target:
-            try:
-                return client.open_by_key(spreadsheet_target)
-            except Exception:
-                return client.open(spreadsheet_target)
-        else:
-            return client.open(spreadsheet_target)
-    except Exception:
-        return None
-
-
-def read_worksheet_as_df(sh, worksheet_name: str) -> pd.DataFrame:
-    """Legge un foglio di lavoro da gspread e restituisce un DataFrame pandas."""
-    try:
-        worksheet = sh.worksheet(worksheet_name)
-    except Exception:
-        return pd.DataFrame()
-    
-    values = worksheet.get_all_values()
-    if not values or len(values) == 0:
-        return pd.DataFrame()
-    
-    headers = [str(h).strip() for h in values[0]]
-    rows = values[1:]
-    if not rows:
-        return pd.DataFrame(columns=headers)
-        
-    df = pd.DataFrame(rows, columns=headers)
-    return df
-
-
-def write_df_to_worksheet(sh, worksheet_name: str, df: pd.DataFrame):
-    """Scrive un DataFrame pandas su un foglio di lavoro gspread."""
-    try:
-        worksheet = sh.worksheet(worksheet_name)
-    except Exception:
-        rows_needed = max(100, len(df) + 10)
-        cols_needed = max(20, len(df.columns) + 2)
-        worksheet = sh.add_worksheet(title=worksheet_name, rows=rows_needed, cols=cols_needed)
-    
-    headers = list(df.columns)
-    data_rows = df.fillna("").astype(str).values.tolist()
-    all_values = [headers] + data_rows
-    
-    worksheet.clear()
-    worksheet.update(range_name="A1", values=all_values)
-
-
-def init_local_storage():
-    """Inizializza la cartella locale e i file CSV di fallback se non esistono."""
-    if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR, exist_ok=True)
-    
-    if not os.path.exists(CSV_GIOCATORI):
-        df_gio = pd.DataFrame(GIOCATORI_DEFAULT)
-        df_gio.to_csv(CSV_GIOCATORI, index=False)
-        
-    if not os.path.exists(CSV_PARTITE):
-        df_par = pd.DataFrame(PARTITE_DEFAULT)
-        df_par.to_csv(CSV_PARTITE, index=False)
-
-
-@st.cache_data(ttl=300)
-def load_data():
-    """
-    Carica i dataframe 'giocatori' e 'partite'.
-    Usa Google Sheets tramite gspread se configurato, altrimenti usa il fallback locale CSV.
-    """
-    sh = get_gsheets_spreadsheet()
-    
-    if sh is not None:
-        try:
-            # Lettura da Google Sheets
-            df_giocatori = read_worksheet_as_df(sh, "giocatori")
-            df_partite = read_worksheet_as_df(sh, "partite")
-            
-            # Sanitizzazione colonne giocatori
-            if df_giocatori is None or (df_giocatori.empty and "nome_completo" not in df_giocatori.columns):
-                df_giocatori = pd.DataFrame(columns=["id_giocatore", "nome_completo", "data_creazione"])
-                try:
-                    write_df_to_worksheet(sh, "giocatori", df_giocatori)
-                except Exception:
-                    pass
-            else:
-                if "nome_completo" in df_giocatori.columns:
-                    df_giocatori = df_giocatori.dropna(subset=["nome_completo"])
-                    df_giocatori = df_giocatori[df_giocatori["nome_completo"].astype(str).str.strip() != ""]
-                
-            # Sanitizzazione colonne partite
-            if df_partite is None or (df_partite.empty and "id_partita" not in df_partite.columns):
-                df_partite = pd.DataFrame(columns=[
-                    "id_partita", "data", "squadra_a_giocatori", 
-                    "squadra_b_giocatori", "gol_squadra_a", "gol_squadra_b", "esito"
-                ])
-                try:
-                    write_df_to_worksheet(sh, "partite", df_partite)
-                except Exception:
-                    pass
-            else:
-                if "id_partita" in df_partite.columns:
-                    df_partite = df_partite.dropna(subset=["id_partita"])
-                    df_partite = df_partite[df_partite["id_partita"].astype(str).str.strip() != ""]
-                
-            # Conversione tipi
-            if not df_giocatori.empty and "id_giocatore" in df_giocatori.columns:
-                df_giocatori["id_giocatore"] = pd.to_numeric(df_giocatori["id_giocatore"], errors="coerce").fillna(0).astype(int)
-            if not df_partite.empty:
-                if "id_partita" in df_partite.columns:
-                    df_partite["id_partita"] = pd.to_numeric(df_partite["id_partita"], errors="coerce").fillna(0).astype(int)
-                if "gol_squadra_a" in df_partite.columns:
-                    df_partite["gol_squadra_a"] = pd.to_numeric(df_partite["gol_squadra_a"], errors="coerce").fillna(0).astype(int)
-                if "gol_squadra_b" in df_partite.columns:
-                    df_partite["gol_squadra_b"] = pd.to_numeric(df_partite["gol_squadra_b"], errors="coerce").fillna(0).astype(int)
-                    
-            return df_giocatori, df_partite, "Google Sheets"
-        except Exception:
-            # Fallback su locale in caso di errore
-            pass
-            
-    # Fallback locale CSV
-    init_local_storage()
-    df_giocatori = pd.read_csv(CSV_GIOCATORI)
-    df_partite = pd.read_csv(CSV_PARTITE)
-    
-    # Conversione corretta dei tipi
-    if not df_giocatori.empty and "id_giocatore" in df_giocatori.columns:
-        df_giocatori["id_giocatore"] = pd.to_numeric(df_giocatori["id_giocatore"], errors="coerce").fillna(0).astype(int)
-    if not df_partite.empty:
-        if "id_partita" in df_partite.columns:
-            df_partite["id_partita"] = pd.to_numeric(df_partite["id_partita"], errors="coerce").fillna(0).astype(int)
-        if "gol_squadra_a" in df_partite.columns:
-            df_partite["gol_squadra_a"] = pd.to_numeric(df_partite["gol_squadra_a"], errors="coerce").fillna(0).astype(int)
-        if "gol_squadra_b" in df_partite.columns:
-            df_partite["gol_squadra_b"] = pd.to_numeric(df_partite["gol_squadra_b"], errors="coerce").fillna(0).astype(int)
-        
-    return df_giocatori, df_partite, "Locale (CSV)"
-
-
-def save_giocatori(df_giocatori: pd.DataFrame):
-    """Salva il dataframe giocatori su GSheets o su CSV locale."""
-    sh = get_gsheets_spreadsheet()
-    if sh is not None:
-        try:
-            write_df_to_worksheet(sh, "giocatori", df_giocatori)
-            st.cache_data.clear()
-            return True
-        except Exception:
-            pass
-    # Fallback locale
-    init_local_storage()
-    df_giocatori.to_csv(CSV_GIOCATORI, index=False)
-    st.cache_data.clear()
-    return True
-
-
-def save_partite(df_partite: pd.DataFrame):
-    """Salva il dataframe partite su GSheets o su CSV locale."""
-    sh = get_gsheets_spreadsheet()
-    if sh is not None:
-        try:
-            write_df_to_worksheet(sh, "partite", df_partite)
-            st.cache_data.clear()
-            return True
-        except Exception:
-            pass
-    # Fallback locale
-    init_local_storage()
-    df_partite.to_csv(CSV_PARTITE, index=False)
-    st.cache_data.clear()
-    return True
-
-
-
-# ==============================================================================
-# LOGICA DI CALCOLO CLASSIFICHE & STATISTICHE (PANDAS)
-# ==============================================================================
-def calculate_leaderboard(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame) -> pd.DataFrame:
-    """
-    Calcola la classifica generale dei giocatori basandosi sulle partite registrate.
-    Restituisce un dataframe con: Giocatore, PG, V, P, S, % Vittoria, Punti.
-    Ordinamento: Punti DESC -> % Vittoria DESC -> PG DESC.
-    """
-    if df_giocatori.empty:
-        return pd.DataFrame(columns=["Giocatore", "PG", "V", "P", "S", "% Vittoria", "Punti"])
-
-    # Inizializza statistiche base per ogni giocatore iscritto
-    stats = {}
-    for _, row in df_giocatori.iterrows():
-        nome = str(row["nome_completo"]).strip()
-        stats[nome] = {"PG": 0, "V": 0, "P": 0, "S": 0}
-
-    # Elaborazione di ciascuna partita
-    if not df_partite.empty:
-        for _, match in df_partite.iterrows():
-            # Estrarre giocatori squadra A e B
-            raw_a = str(match.get("squadra_a_giocatori", ""))
-            raw_b = str(match.get("squadra_b_giocatori", ""))
-            
-            sq_a = [p.strip() for p in raw_a.split(",") if p.strip()]
-            sq_b = [p.strip() for p in raw_b.split(",") if p.strip()]
-            
-            gol_a = int(match.get("gol_squadra_a", 0))
-            gol_b = int(match.get("gol_squadra_b", 0))
-            
-            # Assegnazione esito
-            if gol_a > gol_b:
-                esito_a, esito_b = "V", "S"
-            elif gol_b > gol_a:
-                esito_a, esito_b = "S", "V"
-            else:
-                esito_a, esito_b = "P", "P"
-
-            for player in sq_a:
-                if player in stats:
-                    stats[player]["PG"] += 1
-                    stats[player][esito_a] += 1
-
-            for player in sq_b:
-                if player in stats:
-                    stats[player]["PG"] += 1
-                    stats[player][esito_b] += 1
-
-    # Creazione della tabella riassuntiva
-    rows = []
-    for player, s in stats.items():
-        pg = s["PG"]
-        v = s["V"]
-        p = s["P"]
-        sc = s["S"]
-        punti = (v * 3) + (p * 1)
-        win_rate = round((v / pg * 100), 1) if pg > 0 else 0.0
-
-        rows.append({
-            "Giocatore": player,
-            "Punti": punti,
-            "PG": pg,
-            "V": v,
-            "P": p,
-            "S": sc,
-            "% Vittoria": win_rate
-        })
-
-    df_result = pd.DataFrame(rows)
-    if not df_result.empty:
-        # Ordinamento: Punti DESC -> % Vittoria DESC -> PG DESC
-        df_result = df_result.sort_values(
-            by=["Punti", "% Vittoria", "PG", "Giocatore"],
-            ascending=[False, False, False, True]
-        ).reset_index(drop=True)
-
-    return df_result
-
-
-def get_player_details(player_name: str, df_partite: pd.DataFrame) -> dict:
-    """Calcola lo storico dettagliato e la forma recente di un singolo giocatore."""
-    if df_partite.empty:
-        return {"presenze_a": 0, "presenze_b": 0, "totale": 0, "forma": [], "gol_fatti_squadre": 0}
-
-    # Ordina cronologicamente le partite (dalla più recente alla più vecchia)
-    df_sorted = df_partite.sort_values(by=["data", "id_partita"], ascending=[False, False])
-
-    presenze_a = 0
-    presenze_b = 0
-    forma = []
-    
-    for _, match in df_sorted.iterrows():
-        raw_a = [p.strip() for p in str(match.get("squadra_a_giocatori", "")).split(",") if p.strip()]
-        raw_b = [p.strip() for p in str(match.get("squadra_b_giocatori", "")).split(",") if p.strip()]
-        gol_a = int(match.get("gol_squadra_a", 0))
-        gol_b = int(match.get("gol_squadra_b", 0))
-
-        if player_name in raw_a:
-            presenze_a += 1
-            if gol_a > gol_b:
-                forma.append("V")
-            elif gol_a < gol_b:
-                forma.append("S")
-            else:
-                forma.append("P")
-        elif player_name in raw_b:
-            presenze_b += 1
-            if gol_b > gol_a:
-                forma.append("V")
-            elif gol_b < gol_a:
-                forma.append("S")
-            else:
-                forma.append("P")
-
-    return {
-        "presenze_a": presenze_a,
-        "presenze_b": presenze_b,
-        "totale": presenze_a + presenze_b,
-        "forma": forma[:5],  # ultime 5 partite
-    }
-
-
-# ==============================================================================
-# SISTEMA DI AUTENTICAZIONE (PIN GATE)
-# ==============================================================================
 def render_pin_gate():
-    """Mostra la schermata di blocco per inserire il PIN di sicurezza."""
+    """Mostra la schermata di login con verifica PIN (Sola Lettura vs Amministratore)."""
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.markdown("<div style='text-align: center; font-size: 3.5rem;'>⚽🔒</div>", unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align: center; color: #10b981;'>Calcetto Stats</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #94a3b8;'>Inserisci il PIN per accedere alla gestione statistiche</p>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #10b981;'>Calcetto Stats & Manager</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #94a3b8;'>Inserisci il PIN per accedere alla piattaforma</p>", unsafe_allow_html=True)
         
         with st.form("pin_form", clear_on_submit=False):
             pin_input = st.text_input("PIN di Accesso", type="password", placeholder="••••", max_chars=10)
             submit_btn = st.form_submit_button("Sblocca Applicazione 🔓", use_container_width=True)
             
             if submit_btn:
-                if pin_input.strip() == PIN_CORRETTO:
+                pin_clean = pin_input.strip()
+                if pin_clean == PIN_ADMIN:
                     st.session_state["authenticated"] = True
-                    st.success("Accesso eseguito con successo!")
+                    st.session_state["user_role"] = "admin"
+                    st.success("Accesso eseguito come **Amministratore** 🛡️")
+                    st.rerun()
+                elif pin_clean == PIN_VIEWER:
+                    st.session_state["authenticated"] = True
+                    st.session_state["user_role"] = "viewer"
+                    st.success("Accesso eseguito in modalità **Sola Lettura** 👁️")
                     st.rerun()
                 else:
-                    st.error("PIN non corretto. Riprova.")
+                    st.error("❌ PIN non valido. Riprova con il PIN corretto.")
+
+        st.caption("ℹ️ *PIN Sola Lettura: 5678 • PIN Amministratore: 1234*")
 
 
 # ==============================================================================
-# VISTA A: TABELLONE & CLASSIFICHE (DASHBOARD)
+# 3. VISTA A: TABELLONE & CLASSIFICHE (GENERAL, ELO, MARCATORI, COPPIE, STRISCE)
 # ==============================================================================
-def view_dashboard(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame, storage_source: str):
-    st.markdown("<div class='main-title'>🏆 Tabellone & Classifiche</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='sub-title'>Panoramica rendimento generale • Sorgente dati: <b>{storage_source}</b></div>", unsafe_allow_html=True)
+def view_dashboard(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame, df_voti: pd.DataFrame, storage_source: str):
+    st.markdown("<div class='main-title'>🏆 Tabellone & Statistiche</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='sub-title'>Panoramica rendimento generale • Rating ELO dinamico • Sorgente: <b>{storage_source}</b></div>", unsafe_allow_html=True)
 
-    # 1. Metriche Generali in Alto
+    # 1. Metriche Generali Superiori
     tot_partite = len(df_partite)
     tot_giocatori = len(df_giocatori)
     
@@ -579,72 +246,238 @@ def view_dashboard(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame, storage
         media_gol = 0.0
 
     m1, m2, m3 = st.columns(3)
-    m1.metric("⚽ Partite Giocate", f"{tot_partite}")
+    m1.metric("⚽ Partite Disputate", f"{tot_partite}")
     m2.metric("👥 Giocatori Iscritti", f"{tot_giocatori}")
-    m3.metric("🎯 Media Gol / Gara", f"{media_gol}")
+    m3.metric("🎯 Media Gol / Partita", f"{media_gol}")
 
     st.markdown("---")
 
-    # 2. Classifica Generale Rendimento
-    st.markdown("### 🥇 Classifica Generale")
-    df_rank = calculate_leaderboard(df_giocatori, df_partite)
-    
-    if df_rank.empty:
-        st.info("Nessun dato disponibile. Inizia aggiungendo giocatori e registrando la prima partita!")
-    else:
-        # Formattazione per la visualizzazione
-        df_display = df_rank.copy()
-        df_display["Pos."] = range(1, len(df_display) + 1)
-        df_display["% Vittoria"] = df_display["% Vittoria"].apply(lambda x: f"{x:.1f}%")
+    # 2. Calcolo ELO e Classifiche
+    elo_ratings, elo_history = logic.calculate_elo_ratings(df_giocatori, df_partite)
+    gruppo_set = set(df_giocatori[df_giocatori["in_gruppo_ristretto"] == True]["nome_completo"].dropna().tolist()) if not df_giocatori.empty and "in_gruppo_ristretto" in df_giocatori.columns else set()
+
+    tab_classifica, tab_marcatori, tab_elo, tab_strisce, tab_coppie, tab_spotlight = st.tabs([
+        "🥇 Classifica Generale",
+        "⚽ Marcatori",
+        "⚡ Rating ELO",
+        "🔥 Strisce Vittorie",
+        "🤝 Coppie & Rivali",
+        "🔍 Scheda Giocatore"
+    ])
+
+    # TAB 1: CLASSIFICA GENERALE
+    with tab_classifica:
+        st.markdown("### 🥇 Classifica Rendimento")
+        df_rank = logic.calculate_leaderboard(df_giocatori, df_partite, elo_ratings)
         
-        # Riordino colonne
-        cols = ["Pos.", "Giocatore", "Punti", "PG", "V", "P", "S", "% Vittoria"]
-        df_display = df_display[cols]
+        if df_rank.empty:
+            st.info("Nessun dato disponibile. Inizia registrando la prima partita!")
+        else:
+            df_display = df_rank.copy()
+            df_display["Pos."] = range(1, len(df_display) + 1)
+            df_display["Cerchia"] = df_display["Giocatore"].apply(lambda x: "⭐ Cerchia" if x in gruppo_set else "—")
+            df_display["% Vittoria"] = df_display["% Vittoria"].apply(lambda x: f"{x:.1f}%")
+            
+            cols = ["Pos.", "Giocatore", "Cerchia", "Punti", "PG", "V", "P", "S", "% Vittoria", "ELO"]
+            st.dataframe(
+                df_display[cols],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Pos.": st.column_config.NumberColumn("Pos.", width="small"),
+                    "Giocatore": st.column_config.TextColumn("Giocatore", width="medium"),
+                    "Cerchia": st.column_config.TextColumn("Gruppo", width="small", help="⭐ = Membro Gruppo Ristretto"),
+                    "Punti": st.column_config.NumberColumn("Punti 🏆", help="3 per V, 1 per P, 0 per S"),
+                    "PG": st.column_config.NumberColumn("PG", help="Partite Giocate"),
+                    "V": st.column_config.NumberColumn("V", help="Vittorie"),
+                    "P": st.column_config.NumberColumn("P", help="Pareggi"),
+                    "S": st.column_config.NumberColumn("S", help="Sconfitte"),
+                    "% Vittoria": st.column_config.TextColumn("% Vittoria", help="(Vittorie / PG) * 100"),
+                    "ELO": st.column_config.NumberColumn("Rating ELO ⚡", help="Punteggio ELO dinamico (Inizio 1500)"),
+                }
+            )
+
+    # TAB 2: CLASSIFICA MARCATORI
+    with tab_marcatori:
+        st.markdown("### ⚽ Classifica Marcatori (Soli Gol Individuali)")
+        st.caption("Conteggio rigoroso dei soli gol realizzati dal singolo giocatore (esclusi gli assist).")
+        df_scorers = logic.calculate_scorers(df_giocatori, df_partite)
+
+        if df_scorers.empty or df_scorers["Gol Totali"].sum() == 0:
+            st.info("Nessun gol individuale registrato finora.")
+        else:
+            df_sc_disp = df_scorers.copy()
+            df_sc_disp["Pos."] = range(1, len(df_sc_disp) + 1)
+            df_sc_disp["Cerchia"] = df_sc_disp["Giocatore"].apply(lambda x: "⭐" if x in gruppo_set else "")
+            cols = ["Pos.", "Giocatore", "Cerchia", "Gol Totali", "PG", "Media Gol"]
+            st.dataframe(
+                df_sc_disp[cols],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Pos.": st.column_config.NumberColumn("Pos.", width="small"),
+                    "Giocatore": st.column_config.TextColumn("Giocatore", width="medium"),
+                    "Cerchia": st.column_config.TextColumn("Cerchia", width="small", help="⭐ Membro gruppo ristretto"),
+                    "Gol Totali": st.column_config.NumberColumn("⚽ Gol Totali", help="Somma gol individuali"),
+                    "PG": st.column_config.NumberColumn("Partite", help="Presenze in campo"),
+                    "Media Gol": st.column_config.NumberColumn("🎯 Media Gol/Gara", help="Gol / Partite Giocate", format="%.2f"),
+                }
+            )
+
+    # TAB 3: RATING ELO DINAMICO
+    with tab_elo:
+        st.markdown("### ⚡ Rating ELO Dinamico")
+        st.caption("Punteggio iniziale: **1500**. Ricalcolato match dopo match in base al livello medio della squadra e allo scarto reti.")
         
-        # Mostra tabella responsive
+        elo_list = [{"Giocatore": k, "ELO Attuale": v, "Differenza da 1500": round(v - 1500, 1)} for k, v in elo_ratings.items()]
+        df_elo_table = pd.DataFrame(elo_list).sort_values(by="ELO Attuale", ascending=False).reset_index(drop=True)
+        df_elo_table["Pos."] = range(1, len(df_elo_table) + 1)
+        df_elo_table["Cerchia"] = df_elo_table["Giocatore"].apply(lambda x: "⭐" if x in gruppo_set else "")
+
         st.dataframe(
-            df_display,
+            df_elo_table[["Pos.", "Giocatore", "Cerchia", "ELO Attuale", "Differenza da 1500"]],
             use_container_width=True,
             hide_index=True,
             column_config={
                 "Pos.": st.column_config.NumberColumn("Pos.", width="small"),
                 "Giocatore": st.column_config.TextColumn("Giocatore", width="medium"),
-                "Punti": st.column_config.NumberColumn("Punti 🏆", help="3 per V, 1 per P, 0 per S"),
-                "PG": st.column_config.NumberColumn("PG", help="Partite Giocate"),
-                "V": st.column_config.NumberColumn("V", help="Vittorie"),
-                "P": st.column_config.NumberColumn("P", help="Pareggi"),
-                "S": st.column_config.NumberColumn("S", help="Sconfitte"),
-                "% Vittoria": st.column_config.TextColumn("% Vittoria", help="(Vittorie / PG) * 100"),
+                "Cerchia": st.column_config.TextColumn("Cerchia", width="small", help="⭐ Membro gruppo ristretto"),
+                "ELO Attuale": st.column_config.NumberColumn("⚡ ELO", format="%.1f"),
+                "Differenza da 1500": st.column_config.NumberColumn("Trend (+/-)", format="%+.1f"),
             }
         )
 
-    st.markdown("---")
+    # TAB 4: STRISCE DI VITTORIE
+    with tab_strisce:
+        st.markdown("### 🔥 Strisce di Vittorie Consecutive")
+        st.caption("Tracciamento della striscia di vittorie attualmente aperta e del record storico personale.")
+        df_streaks = logic.calculate_win_streaks(df_giocatori, df_partite)
 
-    # 3. Scheda Statistiche Individuali (Player Spotlight)
-    st.markdown("### 🔍 Scheda Singolo Giocatore")
-    
-    lista_giocatori = sorted(df_giocatori["nome_completo"].dropna().unique().tolist()) if not df_giocatori.empty else []
-    
-    if not lista_giocatori:
-        st.info("Nessun giocatore registrato.")
-    else:
-        selected_player = st.selectbox("Seleziona un giocatore per visualizzare lo storico:", options=lista_giocatori)
+        if df_streaks.empty:
+            st.info("Nessuna serie di vittorie registrata.")
+        else:
+            df_st_disp = df_streaks.copy()
+            df_st_disp["Pos."] = range(1, len(df_st_disp) + 1)
+            st.dataframe(
+                df_st_disp[["Pos.", "Giocatore", "Striscia Attuale", "Record Storico", "PG Totali"]],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Pos.": st.column_config.NumberColumn("Pos.", width="small"),
+                    "Giocatore": st.column_config.TextColumn("Giocatore", width="medium"),
+                    "Striscia Attuale": st.column_config.NumberColumn("🔥 Serie Aperta", help="Vittorie consecutive in corso"),
+                    "Record Storico": st.column_config.NumberColumn("🏆 Record Personale", help="Miglior sequenza storica di vittorie consecutive"),
+                    "PG Totali": st.column_config.NumberColumn("Partite Totali"),
+                }
+            )
+
+    # TAB 5: COPPIE D'ORO & RIVALI
+    with tab_coppie:
+        st.markdown("### 🤝 Coppie d'Oro (Affinità Compagni)")
+        st.caption("Percentuale di vittoria quando due giocatori giocano nello stesso schieramento (minimo **3 partite** insieme).")
+        df_duos, df_rivals = logic.calculate_golden_duos_and_rivalries(df_partite, min_games_together=3)
+
+        if df_duos.empty:
+            st.info("Nessuna coppia ha ancora raggiunto la soglia minima di 3 partite giocate insieme.")
+        else:
+            df_duos_disp = df_duos.copy()
+            df_duos_disp["Pos."] = range(1, len(df_duos_disp) + 1)
+            df_duos_disp["% Vittoria Insieme"] = df_duos_disp["% Vittoria Insieme"].apply(lambda x: f"{x:.1f}%")
+            st.dataframe(
+                df_duos_disp[["Pos.", "Coppia", "PG Insieme", "V Insieme", "P Insieme", "S Insieme", "% Vittoria Insieme"]],
+                use_container_width=True,
+                hide_index=True
+            )
+
+        st.markdown("---")
+        st.markdown("### ⚔️ Scontri Diretti (Testa a Testa)")
+        st.caption("Statistiche storiche quando due giocatori si affrontano come avversari in squadre opposte.")
+
+        if df_rivals.empty:
+            st.info("Nessuno scontro diretto registrato finora.")
+        else:
+            lista_nomi = sorted(df_giocatori["nome_completo"].dropna().unique().tolist()) if not df_giocatori.empty else []
+            if len(lista_nomi) >= 2:
+                col_r1, col_r2 = st.columns(2)
+                with col_r1:
+                    p1_sel = st.selectbox("Giocatore 1:", options=lista_nomi, key="rival_p1_sel")
+                with col_r2:
+                    p2_options = [p for p in lista_nomi if p != p1_sel]
+                    p2_sel = st.selectbox("Giocatore 2 (Avversario):", options=p2_options, key="rival_p2_sel")
+
+                # Cerca confronto
+                found = False
+                for _, r in df_rivals.iterrows():
+                    ga = r["Giocatore A"]
+                    gb = r["Giocatore B"]
+                    if (ga == p1_sel and gb == p2_sel) or (ga == p2_sel and gb == p1_sel):
+                        found = True
+                        tot_scontri = r["Scontri Diretti"]
+                        v_p1 = r.get(f"Vittorie {p1_sel}", 0)
+                        v_p2 = r.get(f"Vittorie {p2_sel}", 0)
+                        pareggi = r["Pareggi"]
+
+                        rc1, rc2, rc3 = st.columns(3)
+                        rc1.metric(f"Vittorie {p1_sel}", f"{v_p1}")
+                        rc2.metric("Pareggi", f"{pareggi}")
+                        rc3.metric(f"Vittorie {p2_sel}", f"{v_p2}")
+                        st.caption(f"Totale sfide da avversari: **{tot_scontri}**")
+                        break
+
+                if not found:
+                    st.info(f"Nessuno scontro diretto registrato tra **{p1_sel}** e **{p2_sel}**.")
+
+    # TAB 6: SCHEDA SINGOLO GIOCATORE
+    with tab_spotlight:
+        st.markdown("### 🔍 Scheda Singolo Giocatore")
+        lista_giocatori = sorted(df_giocatori["nome_completo"].dropna().unique().tolist()) if not df_giocatori.empty else []
         
-        if selected_player:
-            details = get_player_details(selected_player, df_partite)
+        if not lista_giocatori:
+            st.info("Nessun giocatore registrato.")
+        else:
+            selected_player = st.selectbox("Seleziona un giocatore per i dettagli:", options=lista_giocatori, key="spotlight_player_sel")
             
-            p_col1, p_col2 = st.columns([1, 1])
-            with p_col1:
-                st.markdown(f"#### Statistiche di **{selected_player}**")
-                st.write(f"- **Presenze Totali:** {details['totale']}")
-                st.write(f"- 🟦 **In Squadra A:** {details['presenze_a']} volte")
-                st.write(f"- 🟥 **In Squadra B:** {details['presenze_b']} volte")
+            if selected_player:
+                p_elo = elo_ratings.get(selected_player, 1500.0)
                 
-            with p_col2:
-                st.markdown("#### Forma Recente (Ultime 5 partite)")
-                if details["forma"]:
+                # Forma e presenze
+                pres_a = 0
+                pres_b = 0
+                forma = []
+                gol_segnati = 0
+
+                if not df_partite.empty:
+                    df_sorted_p = df_partite.sort_values(by=["data", "id_partita"], ascending=[False, False])
+                    for _, match in df_sorted_p.iterrows():
+                        raw_a = [p.strip() for p in str(match.get("squadra_a_giocatori", "")).split(",") if p.strip()]
+                        raw_b = [p.strip() for p in str(match.get("squadra_b_giocatori", "")).split(",") if p.strip()]
+                        gol_a = int(match.get("gol_squadra_a", 0))
+                        gol_b = int(match.get("gol_squadra_b", 0))
+
+                        # Gol
+                        m_dict = logic.parse_marcatori(match.get("marcatori", ""))
+                        if selected_player in m_dict:
+                            gol_segnati += m_dict[selected_player]
+
+                        if selected_player in raw_a:
+                            pres_a += 1
+                            forma.append("V" if gol_a > gol_b else ("P" if gol_a == gol_b else "S"))
+                        elif selected_player in raw_b:
+                            pres_b += 1
+                            forma.append("V" if gol_b > gol_a else ("P" if gol_b == gol_a else "S"))
+
+                tot_pres = pres_a + pres_b
+
+                # Layout Scheda
+                c_sp1, c_sp2, c_sp3 = st.columns(3)
+                c_sp1.metric("Rating ELO", f"{p_elo:.1f}")
+                c_sp2.metric("Presenze Totali", f"{tot_pres}")
+                c_sp3.metric("Gol Segnati", f"{gol_segnati}")
+
+                st.markdown("#### 🏃 Forma Recente (Ultime 5 partite)")
+                if forma:
                     badges_html = ""
-                    for res in details["forma"]:
+                    for res in forma[:5]:
                         if res == "V":
                             badges_html += "<span class='badge-v'>V</span>"
                         elif res == "P":
@@ -652,181 +485,978 @@ def view_dashboard(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame, storage
                         else:
                             badges_html += "<span class='badge-s'>S</span>"
                     st.markdown(badges_html, unsafe_allow_html=True)
-                    st.caption("Ordine da sinistra a destra: dalla più recente alla meno recente.")
+                    st.caption("Dalla più recente (sinistra) alla meno recente (destra).")
                 else:
                     st.write("Nessuna partita disputata finora.")
 
 
 # ==============================================================================
-# VISTA B: AGGIUNGI NUOVA PARTITA
+# 3B. VISTA: CLASSIFICA & STATISTICHE GRUPPO RISTRETTO (CERCHIA RISTRETTA)
 # ==============================================================================
-def view_add_match(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame):
+def view_gruppo_ristretto(
+    df_giocatori: pd.DataFrame, 
+    df_partite: pd.DataFrame, 
+    df_voti: pd.DataFrame, 
+    storage_source: str,
+    is_admin: bool
+):
+    st.markdown("<div class='main-title'>🏆 Classifica Amici (Gruppo Ristretto)</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='sub-title'>Dashboard statistica dedicata esclusivamente ai membri storici e fissi del gruppo • Sorgente: <b>{storage_source}</b></div>", unsafe_allow_html=True)
+
+    # 1. Recupero membri gruppo ristretto
+    if df_giocatori.empty or "in_gruppo_ristretto" not in df_giocatori.columns:
+        gruppo_names = []
+    else:
+        gruppo_df = df_giocatori[df_giocatori["in_gruppo_ristretto"] == True]
+        gruppo_names = sorted(gruppo_df["nome_completo"].dropna().tolist())
+
+    # 2. Pannello di Gestione Membri (Admin Only) o Riepilogo (Viewer)
+    if is_admin:
+        with st.expander("⚙️ Gestione Membri Cerchia Ristretta (Solo Admin)", expanded=(len(gruppo_names) == 0)):
+            st.caption("Aggiungi o rimuovi giocatori dalla Cerchia Ristretta. Il salvataggio aggiorna istantaneamente tutte le statistiche e tabelle.")
+            tutti_i_nomi = sorted(df_giocatori["nome_completo"].dropna().tolist()) if not df_giocatori.empty else []
+            
+            selected_members = st.multiselect(
+                "Seleziona i membri del Gruppo Ristretto:",
+                options=tutti_i_nomi,
+                default=gruppo_names,
+                key="admin_gruppo_multiselect"
+            )
+            
+            col_b1, col_b2 = st.columns([1, 3])
+            with col_b1:
+                if st.button("💾 Salva Membri Cerchia", type="primary", use_container_width=True, key="btn_save_cerchia_members"):
+                    ids_selezionati = df_giocatori[df_giocatori["nome_completo"].isin(selected_members)]["id_giocatore"].tolist()
+                    storage.update_gruppo_ristretto_members(ids_selezionati)
+                    st.success("✅ Membri del gruppo ristretto aggiornati con successo!")
+                    st.rerun()
+            with col_b2:
+                st.caption(f"Giocatori selezionati: **{len(selected_members)}** su {len(tutti_i_nomi)} registrati.")
+    else:
+        with st.expander(f"👥 Membri Attivi della Cerchia Ristretta ({len(gruppo_names)})", expanded=False):
+            if gruppo_names:
+                pills_html = " ".join([f"<span class='badge-circle'>⭐ {n}</span>" for n in gruppo_names])
+                st.markdown(pills_html, unsafe_allow_html=True)
+            else:
+                st.info("Nessun membro attualmente assegnato alla cerchia ristretta. L'amministratore può configurarlo con PIN 1234.")
+
+    if not gruppo_names:
+        st.warning("⚠️ Nessun giocatore fa attualmente parte del Gruppo Ristretto. " + 
+                   ("Usa il pannello amministratore sopra per selezionare i membri." if is_admin else "In attesa di configurazione da parte dell'Amministratore."))
+        return
+
+    # 3. Toggle Filtro Partite (Tutte le partite con membri vs Solo 100% cerchia)
+    st.markdown("<br>", unsafe_allow_html=True)
+    opzione_filtro = st.radio(
+        "📐 **Modalità Calcolo Statistiche:**",
+        options=[
+            "🌐 Tutte le partite disputate dai membri (anche in presenza di esterni)",
+            "🔒 Solo partite 100% Cerchia Ristretta (entrambi i team composti solo da membri)"
+        ],
+        index=0,
+        horizontal=True,
+        key="radio_filtro_partite_gruppo"
+    )
+
+    is_strict = ("Solo partite 100%" in opzione_filtro)
+    if is_strict:
+        df_partite_calc = logic.filter_internal_matches(df_partite, gruppo_names, strict=True)
+    else:
+        df_partite_calc = df_partite.copy()
+
+    # 4. Metriche Principali Cerchia
+    tot_partite_cerchia = len(df_partite_calc)
+    tot_membri_cerchia = len(gruppo_names)
+
+    if tot_partite_cerchia > 0:
+        tot_gol_c = df_partite_calc["gol_squadra_a"].sum() + df_partite_calc["gol_squadra_b"].sum()
+        media_gol_c = round(tot_gol_c / tot_partite_cerchia, 1)
+    else:
+        media_gol_c = 0.0
+
+    # Calcolo ELO e Statistiche Filtrate
+    elo_ratings_c, elo_history_c = logic.calculate_elo_ratings(df_giocatori, df_partite_calc, giocatori_filtrati=gruppo_names)
+    elo_medio = round(sum(elo_ratings_c.values()) / len(elo_ratings_c), 1) if elo_ratings_c else 1500.0
+
+    mc1, mc2, mc3, mc4 = st.columns(4)
+    mc1.metric("⭐ Membri Cerchia", f"{tot_membri_cerchia}")
+    mc2.metric("⚽ Partite Valide", f"{tot_partite_cerchia}")
+    mc3.metric("🎯 Media Gol / Match", f"{media_gol_c}")
+    mc4.metric("⚡ ELO Medio Cerchia", f"{elo_medio}")
+
+    st.markdown("---")
+
+    # 5. Tabs Statistiche Ristrette
+    tab_cl_g, tab_marc_g, tab_elo_g, tab_str_g, tab_coppie_g, tab_spot_g = st.tabs([
+        "🥇 Classifica Rendimento",
+        "⚽ Marcatori Cerchia",
+        "⚡ Rating ELO Amici",
+        "🔥 Strisce Vittorie",
+        "🤝 Coppie & Rivali",
+        "🔍 Scheda Membro & Sfide"
+    ])
+
+    # TAB 1: CLASSIFICA GENERALE CERCHIA
+    with tab_cl_g:
+        st.markdown("### 🥇 Classifica Rendimento (Cerchia Ristretta)")
+        st.caption("Classifica calcolata esclusivamente sui membri del gruppo ristretto.")
+        df_rank_g = logic.calculate_leaderboard(df_giocatori, df_partite_calc, elo_ratings_c, giocatori_filtrati=gruppo_names)
+
+        if df_rank_g.empty:
+            st.info("Nessuna statistica disponibile per i criteri selezionati.")
+        else:
+            df_disp_g = df_rank_g.copy()
+            df_disp_g["Pos."] = range(1, len(df_disp_g) + 1)
+            df_disp_g["% Vittoria"] = df_disp_g["% Vittoria"].apply(lambda x: f"{x:.1f}%")
+            
+            cols = ["Pos.", "Giocatore", "Punti", "PG", "V", "P", "S", "% Vittoria", "ELO"]
+            st.dataframe(
+                df_disp_g[cols],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Pos.": st.column_config.NumberColumn("Pos.", width="small"),
+                    "Giocatore": st.column_config.TextColumn("Giocatore ⭐", width="medium"),
+                    "Punti": st.column_config.NumberColumn("Punti 🏆", help="3 per V, 1 per P, 0 per S"),
+                    "PG": st.column_config.NumberColumn("PG", help="Partite Giocate"),
+                    "V": st.column_config.NumberColumn("V", help="Vittorie"),
+                    "P": st.column_config.NumberColumn("P", help="Pareggi"),
+                    "S": st.column_config.NumberColumn("S", help="Sconfitte"),
+                    "% Vittoria": st.column_config.TextColumn("% Vittoria", help="(Vittorie / PG) * 100"),
+                    "ELO": st.column_config.NumberColumn("Rating ELO ⚡", help="Rating ELO dinamico"),
+                }
+            )
+
+    # TAB 2: MARCATORI CERCHIA
+    with tab_marc_g:
+        st.markdown("### ⚽ Classifica Marcatori (Cerchia Ristretta)")
+        st.caption("Soli gol individuali realizzati dai membri storici del gruppo.")
+        df_scorers_g = logic.calculate_scorers(df_giocatori, df_partite_calc, giocatori_filtrati=gruppo_names)
+
+        if df_scorers_g.empty or df_scorers_g["Gol Totali"].sum() == 0:
+            st.info("Nessun gol registrato finora per i membri del gruppo ristretto.")
+        else:
+            df_sc_disp_g = df_scorers_g.copy()
+            df_sc_disp_g["Pos."] = range(1, len(df_sc_disp_g) + 1)
+            cols = ["Pos.", "Giocatore", "Gol Totali", "PG", "Media Gol"]
+            st.dataframe(
+                df_sc_disp_g[cols],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Pos.": st.column_config.NumberColumn("Pos.", width="small"),
+                    "Giocatore": st.column_config.TextColumn("Giocatore ⭐", width="medium"),
+                    "Gol Totali": st.column_config.NumberColumn("⚽ Gol Totali"),
+                    "PG": st.column_config.NumberColumn("Presenze"),
+                    "Media Gol": st.column_config.NumberColumn("🎯 Media Gol/Gara", format="%.2f"),
+                }
+            )
+
+    # TAB 3: RATING ELO CERCHIA
+    with tab_elo_g:
+        st.markdown("### ⚡ Rating ELO Dinamico (Cerchia Ristretta)")
+        st.caption("Punteggio ELO ricalcolato per i membri del gruppo ristretto.")
+
+        elo_list_g = [{"Giocatore": k, "ELO Attuale": v, "Differenza da 1500": round(v - 1500, 1)} for k, v in elo_ratings_c.items()]
+        df_elo_table_g = pd.DataFrame(elo_list_g).sort_values(by="ELO Attuale", ascending=False).reset_index(drop=True)
+        
+        if not df_elo_table_g.empty:
+            df_elo_table_g["Pos."] = range(1, len(df_elo_table_g) + 1)
+            st.dataframe(
+                df_elo_table_g[["Pos.", "Giocatore", "ELO Attuale", "Differenza da 1500"]],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Pos.": st.column_config.NumberColumn("Pos.", width="small"),
+                    "Giocatore": st.column_config.TextColumn("Giocatore ⭐", width="medium"),
+                    "ELO Attuale": st.column_config.NumberColumn("⚡ ELO", format="%.1f"),
+                    "Differenza da 1500": st.column_config.NumberColumn("Trend (+/-)", format="%+.1f"),
+                }
+            )
+        else:
+            st.info("Nessun dato ELO disponibile.")
+
+    # TAB 4: STRISCE VITTORIE
+    with tab_str_g:
+        st.markdown("### 🔥 Strisce di Vittorie Consecutive (Cerchia Ristretta)")
+        st.caption("Serie aperta di vittorie e record personale dei membri abilitati.")
+        df_streaks_g = logic.calculate_win_streaks(df_giocatori, df_partite_calc, giocatori_filtrati=gruppo_names)
+
+        if df_streaks_g.empty:
+            st.info("Nessuna serie registrata.")
+        else:
+            df_st_disp_g = df_streaks_g.copy()
+            df_st_disp_g["Pos."] = range(1, len(df_st_disp_g) + 1)
+            st.dataframe(
+                df_st_disp_g[["Pos.", "Giocatore", "Striscia Attuale", "Record Storico", "PG Totali"]],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Pos.": st.column_config.NumberColumn("Pos.", width="small"),
+                    "Giocatore": st.column_config.TextColumn("Giocatore ⭐", width="medium"),
+                    "Striscia Attuale": st.column_config.NumberColumn("🔥 Serie Aperta"),
+                    "Record Storico": st.column_config.NumberColumn("🏆 Record Personale"),
+                    "PG Totali": st.column_config.NumberColumn("Partite Totali"),
+                }
+            )
+
+    # TAB 5: COPPIE & RIVALI CERCHIA
+    with tab_coppie_g:
+        st.markdown("### 🤝 Coppie d'Oro tra Membri del Gruppo")
+        st.caption("Percentuale di vittoria quando due membri del gruppo giocano nella stessa squadra (minimo 2 partite insieme).")
+        df_duos_g, df_rivals_g = logic.calculate_golden_duos_and_rivalries(df_partite_calc, min_games_together=2, giocatori_filtrati=gruppo_names)
+
+        if df_duos_g.empty:
+            st.info("Nessuna coppia del gruppo ha ancora raggiunto la soglia minima di 2 partite insieme.")
+        else:
+            df_duos_disp_g = df_duos_g.copy()
+            df_duos_disp_g["Pos."] = range(1, len(df_duos_disp_g) + 1)
+            df_duos_disp_g["% Vittoria Insieme"] = df_duos_disp_g["% Vittoria Insieme"].apply(lambda x: f"{x:.1f}%")
+            st.dataframe(
+                df_duos_disp_g[["Pos.", "Coppia", "PG Insieme", "V Insieme", "P Insieme", "S Insieme", "% Vittoria Insieme"]],
+                use_container_width=True,
+                hide_index=True
+            )
+
+        st.markdown("---")
+        st.markdown("### ⚔️ Scontri Diretti tra Membri (Testa a Testa)")
+        st.caption("Statistiche storiche quando due membri del gruppo si affrontano da avversari.")
+
+        if df_rivals_g.empty:
+            st.info("Nessuno scontro diretto registrato tra i membri della cerchia.")
+        else:
+            if len(gruppo_names) >= 2:
+                col_gr1, col_gr2 = st.columns(2)
+                with col_gr1:
+                    p1_g = st.selectbox("Membro 1:", options=gruppo_names, key="rival_g_p1_sel")
+                with col_gr2:
+                    p2_g_opts = [p for p in gruppo_names if p != p1_g]
+                    p2_g = st.selectbox("Membro 2 (Avversario):", options=p2_g_opts, key="rival_g_p2_sel")
+
+                found_g = False
+                for _, r in df_rivals_g.iterrows():
+                    ga = r["Giocatore A"]
+                    gb = r["Giocatore B"]
+                    if (ga == p1_g and gb == p2_g) or (ga == p2_g and gb == p1_g):
+                        found_g = True
+                        tot_sc = r["Scontri Diretti"]
+                        v_1 = r.get(f"Vittorie {p1_g}", 0)
+                        v_2 = r.get(f"Vittorie {p2_g}", 0)
+                        pari = r["Pareggi"]
+
+                        rc1, rc2, rc3 = st.columns(3)
+                        rc1.metric(f"Vittorie {p1_g}", f"{v_1}")
+                        rc2.metric("Pareggi", f"{pari}")
+                        rc3.metric(f"Vittorie {p2_g}", f"{v_2}")
+                        st.caption(f"Totale sfide da avversari: **{tot_sc}**")
+                        break
+
+                if not found_g:
+                    st.info(f"Nessuno scontro diretto registrato tra **{p1_g}** e **{p2_g}**.")
+
+    # TAB 6: SCHEDA MEMBRO
+    with tab_spot_g:
+        st.markdown("### 🔍 Scheda Membro Cerchia")
+        selected_member = st.selectbox("Seleziona un membro del gruppo:", options=gruppo_names, key="spotlight_member_sel")
+
+        if selected_member:
+            m_elo = elo_ratings_c.get(selected_member, 1500.0)
+            
+            # Calcolo presenze, forma e gol per questo membro
+            pres_a_m = 0
+            pres_b_m = 0
+            forma_m = []
+            gol_m = 0
+
+            if not df_partite_calc.empty:
+                df_sorted_m = df_partite_calc.sort_values(by=["data", "id_partita"], ascending=[False, False])
+                for _, match in df_sorted_m.iterrows():
+                    raw_a = [p.strip() for p in str(match.get("squadra_a_giocatori", "")).split(",") if p.strip()]
+                    raw_b = [p.strip() for p in str(match.get("squadra_b_giocatori", "")).split(",") if p.strip()]
+                    gol_a = int(match.get("gol_squadra_a", 0))
+                    gol_b = int(match.get("gol_squadra_b", 0))
+
+                    # Gol
+                    m_dict = logic.parse_marcatori(match.get("marcatori", ""))
+                    if selected_member in m_dict:
+                        gol_m += m_dict[selected_member]
+
+                    if selected_member in raw_a:
+                        pres_a_m += 1
+                        forma_m.append("V" if gol_a > gol_b else ("P" if gol_a == gol_b else "S"))
+                    elif selected_member in raw_b:
+                        pres_b_m += 1
+                        forma_m.append("V" if gol_b > gol_a else ("P" if gol_b == gol_a else "S"))
+
+            tot_pres_m = pres_a_m + pres_b_m
+
+            cm1, cm2, cm3 = st.columns(3)
+            cm1.metric("Rating ELO", f"{m_elo:.1f}")
+            cm2.metric("Presenze Valide", f"{tot_pres_m}")
+            cm3.metric("Gol Segnati", f"{gol_m}")
+
+            st.markdown("#### 🏃 Forma Recente (Ultime 5 partite)")
+            if forma_m:
+                b_html = ""
+                for res in forma_m[:5]:
+                    if res == "V":
+                        b_html += "<span class='badge-v'>V</span>"
+                    elif res == "P":
+                        b_html += "<span class='badge-p'>P</span>"
+                    else:
+                        b_html += "<span class='badge-s'>S</span>"
+                st.markdown(b_html, unsafe_allow_html=True)
+                st.caption("Dalla più recente (sinistra) alla meno recente (destra).")
+            else:
+                st.write("Nessuna partita disputata per questo membro.")
+
+
+# ==============================================================================
+# 4. VISTA B: CONVOCAZIONI, PRESENZE & BILANCIAMENTO SQUADRE
+# ==============================================================================
+def view_convocazioni(
+    df_giocatori: pd.DataFrame, 
+    df_partite: pd.DataFrame, 
+    df_convocazioni: pd.DataFrame, 
+    is_admin: bool
+):
+    st.markdown("<div class='main-title'>📅 Convocazioni & Presenze</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-title'>Gestisci le presenze per la prossima sfida e genera formazioni equilibrate con l'algoritmo ELO</div>", unsafe_allow_html=True)
+
+    # 1. Trova sessione attiva o più recente
+    sessione_attiva = None
+    if not df_convocazioni.empty:
+        # Cerca sessione con stato "Aperta"
+        aperte = df_convocazioni[df_convocazioni["stato"] == "Aperta"]
+        if not aperte.empty:
+            sessione_attiva = aperte.iloc[-1]
+        else:
+            sessione_attiva = df_convocazioni.iloc[-1]
+
+    if sessione_attiva is None:
+        st.info("Nessuna sessione di convocazione attiva.")
+        if is_admin:
+            st.markdown("#### ➕ Crea Nuova Sessione di Convocazione")
+            with st.form("form_nuova_convocazione", clear_on_submit=True):
+                data_match = st.date_input("Data Partita", value=date.today())
+                ora_match = st.time_input("Orario Partita", value=datetime.now().time())
+                luogo_match = st.text_input("Luogo / Campo", value="Campo Comunale (Sintetico)")
+                crea_btn = st.form_submit_button("📢 Apri Sessione Convocazioni", use_container_width=True)
+
+                if crea_btn:
+                    nuovo_id = 1
+                    nuova_riga = {
+                        "id_convocazione": nuovo_id,
+                        "data_partita": data_match.strftime("%Y-%m-%d"),
+                        "ora_partita": ora_match.strftime("%H:%M"),
+                        "luogo": luogo_match.strip(),
+                        "stato": "Aperta",
+                        "presenti": "",
+                        "assenti": ""
+                    }
+                    df_up = pd.DataFrame([nuova_riga])
+                    storage.save_convocazioni(df_up)
+                    st.success("✅ Nuova sessione aperta!")
+                    st.rerun()
+        else:
+            st.warning("🔒 Solo l'amministratore può aprire una nuova sessione di convocazione.")
+        return
+
+    # Estrai dati sessione attiva
+    id_conv = sessione_attiva.get("id_convocazione", 1)
+    data_str = sessione_attiva.get("data_partita", "N/D")
+    ora_str = sessione_attiva.get("ora_partita", "N/D")
+    luogo_str = sessione_attiva.get("luogo", "Campo da Calcetto")
+    stato_str = sessione_attiva.get("stato", "Aperta")
+
+    presenti_raw = [p.strip() for p in str(sessione_attiva.get("presenti", "")).split(",") if p.strip()]
+    assenti_raw = [p.strip() for p in str(sessione_attiva.get("assenti", "")).split(",") if p.strip()]
+
+    num_presenti = len(presenti_raw)
+    target = 10
+    percentuale = min(1.0, num_presenti / target)
+
+    # Box Riepilogo Sessione
+    st.markdown(f"""
+    <div class="glass-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h3 style="margin: 0; color: #38bdf8;">🗓️ Prossima Partita: {data_str} ore {ora_str}</h3>
+            <span style="background: {'#10b981' if stato_str == 'Aperta' else '#64748b'}; color: white; padding: 3px 10px; border-radius: 12px; font-weight: bold; font-size: 0.8rem;">
+                {stato_str}
+            </span>
+        </div>
+        <p style="margin: 0; color: #94a3b8;">📍 <b>Luogo:</b> {luogo_str}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Contatore Dinamico Target 10
+    st.markdown(f"#### 🎯 Convocati Confermati: **{num_presenti} / {target}**")
+    st.progress(percentuale)
+
+    if num_presenti == 10:
+        st.success("🎉 **Quota 10 raggiunta!** Il gruppo è completo per il 5 contro 5.")
+    elif num_presenti > 10:
+        st.warning(f"⚠️ Ci sono **{num_presenti}** giocatori confermati (più dei 10 necessari).")
+    else:
+        st.info(f"Mancano ancora **{target - num_presenti}** giocatori per completare il match.")
+
+    # 2. Modulo Presenze per i Giocatori (Tutti possono confermare presenza/assenza)
+    lista_tutti_giocatori = sorted(df_giocatori["nome_completo"].dropna().unique().tolist()) if not df_giocatori.empty else []
+
+    st.markdown("---")
+    st.markdown("### ✍️ Segna la tua Presenza")
+    
+    if not lista_tutti_giocatori:
+        st.info("Nessun giocatore registrato nell'anagrafica.")
+    elif stato_str != "Aperta":
+        st.info("🔒 La sessione di convocazione è attualmente CHIUSA.")
+    else:
+        c_p1, c_p2, c_p3 = st.columns([2, 1, 1])
+        with c_p1:
+            nome_votante = st.selectbox("Seleziona il tuo nome:", options=lista_tutti_giocatori, key="presence_player_select")
+        with c_p2:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            btn_pres = st.button("✅ Presente", use_container_width=True, type="primary")
+        with c_p3:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            btn_ass = st.button("❌ Assente", use_container_width=True)
+
+        if btn_pres:
+            if nome_votante in presenti_raw:
+                st.warning(f"Sei già segnato come presente!")
+            else:
+                nuovi_presenti = presenti_raw + [nome_votante]
+                nuovi_assenti = [p for p in assenti_raw if p != nome_votante]
+                
+                # Aggiorna
+                df_up = df_convocazioni.copy()
+                idx_to_mod = df_up[df_up["id_convocazione"] == id_conv].index
+                df_up.loc[idx_to_mod, "presenti"] = ", ".join(nuovi_presenti)
+                df_up.loc[idx_to_mod, "assenti"] = ", ".join(nuovi_assenti)
+                storage.save_convocazioni(df_up)
+                st.success(f"Presenza confermata per **{nome_votante}**!")
+                st.rerun()
+
+        if btn_ass:
+            if nome_votante in assenti_raw:
+                st.warning(f"Sei già segnato come assente!")
+            else:
+                nuovi_assenti = assenti_raw + [nome_votante]
+                nuovi_presenti = [p for p in presenti_raw if p != nome_votante]
+                
+                # Aggiorna
+                df_up = df_convocazioni.copy()
+                idx_to_mod = df_up[df_up["id_convocazione"] == id_conv].index
+                df_up.loc[idx_to_mod, "presenti"] = ", ".join(nuovi_presenti)
+                df_up.loc[idx_to_mod, "assenti"] = ", ".join(nuovi_assenti)
+                storage.save_convocazioni(df_up)
+                st.info(f"Assenza registrata per **{nome_votante}**.")
+                st.rerun()
+
+    # Visualizzazione Elenco Presenti e Assenti
+    col_v_pres, col_v_ass = st.columns(2)
+    with col_v_pres:
+        st.markdown(f"#### 🟢 Presenti ({len(presenti_raw)})")
+        if presenti_raw:
+            for p in presenti_raw:
+                st.write(f"- ⚽ **{p}**")
+        else:
+            st.caption("Nessun presente confermato.")
+
+    with col_v_ass:
+        st.markdown(f"#### 🔴 Assenti ({len(assenti_raw)})")
+        if assenti_raw:
+            for p in assenti_raw:
+                st.write(f"- ❌ {p}")
+        else:
+            st.caption("Nessun assente segnalato.")
+
+    # 3. GENERATORE AUTOMATICO SQUADRE EQUILIBRATE (SOLO ADMIN)
+    st.markdown("---")
+    st.markdown("### ⚖️ Generatore Automatico Squadre Equilibrate")
+    
+    if not is_admin:
+        st.info("🔒 La generazione delle formazioni equilibrate è riservata all'**Amministratore** (PIN `1234`).")
+    else:
+        st.caption("L'algoritmo combinatorio analizza tutte le 126 possibili suddivisioni dei 10 giocatori convocati per minimizzare lo scarto di forza ELO tra le due squadre.")
+        
+        # Scelta dei 10 giocatori
+        if len(presenti_raw) == 10:
+            selected_ten = presenti_raw
+            st.success(f"Utilizzo automatico dei **10 convocati confermati**.")
+        else:
+            st.write("Seleziona manualmente i 10 giocatori da dividere:")
+            selected_ten = st.multiselect(
+                "Seleziona 10 giocatori:",
+                options=lista_tutti_giocatori,
+                default=presenti_raw[:10] if len(presenti_raw) >= 10 else presenti_raw,
+                max_selections=10,
+                key="manual_ten_select"
+            )
+
+        if st.button("⚡ Genera Formazioni Equilibrate", type="primary", use_container_width=True):
+            if len(selected_ten) != 10:
+                st.error(f"❌ Devi selezionare esattamente 10 giocatori (attualmente selezionati: {len(selected_ten)}).")
+            else:
+                elo_ratings, _ = logic.calculate_elo_ratings(df_giocatori, df_partite)
+                balanced = logic.balance_teams(selected_ten, elo_ratings)
+                
+                st.session_state["last_balanced"] = balanced
+                st.session_state["balanced_match_data"] = data_str
+
+        if "last_balanced" in st.session_state and st.session_state["last_balanced"]:
+            res = st.session_state["last_balanced"]
+            
+            st.markdown("#### 📋 Risultato Bilanciamento Ottimale")
+            
+            b_col1, b_col2 = st.columns(2)
+            with b_col1:
+                st.markdown(f"""
+                <div class="glass-card" style="border-top: 4px solid #38bdf8;">
+                    <h4 style="color: #38bdf8; margin-top: 0;">🟦 Squadra A</h4>
+                    <p><b>ELO Medio:</b> {res['elo_avg_a']} | <b>Totale:</b> {res['elo_sum_a']}</p>
+                    <ul>
+                        {''.join([f"<li><b>{p}</b> (ELO: {res['ratings_detail_a'].get(p, 1500)})</li>" for p in res['team_a']])}
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with b_col2:
+                st.markdown(f"""
+                <div class="glass-card" style="border-top: 4px solid #f43f5e;">
+                    <h4 style="color: #f43f5e; margin-top: 0;">🟥 Squadra B</h4>
+                    <p><b>ELO Medio:</b> {res['elo_avg_b']} | <b>Totale:</b> {res['elo_sum_b']}</p>
+                    <ul>
+                        {''.join([f"<li><b>{p}</b> (ELO: {res['ratings_detail_b'].get(p, 1500)})</li>" for p in res['team_b']])}
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.info(f"⚖️ **Differenza ELO Totale:** {res['diff_elo']} punti (Diff. media per giocatore: {res['diff_avg_elo']} pt)")
+
+            if st.button("🚀 Trasferisci formazioni per Registrare la Partita", use_container_width=True):
+                st.session_state["prefill_team_a"] = res["team_a"]
+                st.session_state["prefill_team_b"] = res["team_b"]
+                st.session_state["nav_target"] = "➕ Aggiungi Nuova Partita"
+                st.success("Formazioni pronte! Spostati nella sezione 'Aggiungi Nuova Partita'.")
+                st.rerun()
+
+    # 4. Pannello Gestione Sessione Admin
+    if is_admin:
+        st.markdown("---")
+        with st.expander("⚙️ Gestione Convocazione (Pannello Admin)", expanded=False):
+            c_adm1, c_adm2 = st.columns(2)
+            with c_adm1:
+                nuovo_stato = "Chiusa" if stato_str == "Aperta" else "Aperta"
+                if st.button(f"{'🔒 Chiudi' if stato_str == 'Aperta' else '🔓 Riapri'} Sessione Convocazioni", use_container_width=True):
+                    df_up = df_convocazioni.copy()
+                    idx_to_mod = df_up[df_up["id_convocazione"] == id_conv].index
+                    df_up.loc[idx_to_mod, "stato"] = nuovo_stato
+                    storage.save_convocazioni(df_up)
+                    st.success(f"Stato sessione impostato a **{nuovo_stato}**.")
+                    st.rerun()
+
+            with c_adm2:
+                if st.button("🧹 Resetta Lista Presenze", use_container_width=True):
+                    df_up = df_convocazioni.copy()
+                    idx_to_mod = df_up[df_up["id_convocazione"] == id_conv].index
+                    df_up.loc[idx_to_mod, "presenti"] = ""
+                    df_up.loc[idx_to_mod, "assenti"] = ""
+                    storage.save_convocazioni(df_up)
+                    st.success("Elenco presenze azzerato.")
+                    st.rerun()
+
+
+# ==============================================================================
+# 5. VISTA C: PAGELLE POST-PARTITA & ELEZIONE MVP
+# ==============================================================================
+def view_pagelle(
+    df_giocatori: pd.DataFrame, 
+    df_partite: pd.DataFrame, 
+    df_voti: pd.DataFrame, 
+    is_admin: bool
+):
+    st.markdown("<div class='main-title'>⭐ Pagelle & Elezione MVP</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-title'>Vota le prestazioni dei compagni di squadra, consulta i giudizi ed eleggi l'MVP del match</div>", unsafe_allow_html=True)
+
+    if df_partite.empty:
+        st.info("Nessuna partita disputata nello storico per cui assegnare voti.")
+        return
+
+    # Selettore partita
+    opzioni_partite = {}
+    for _, m in df_partite.sort_values(by=["data", "id_partita"], ascending=[False, False]).iterrows():
+        id_p = m.get("id_partita", "")
+        d = m.get("data", "")
+        g_a = m.get("gol_squadra_a", 0)
+        g_b = m.get("gol_squadra_b", 0)
+        lbl = f"Partita #{id_p} del {d} ({g_a} - {g_b})"
+        opzioni_partite[lbl] = id_p
+
+    scelta_p = st.selectbox("Seleziona la partita da esaminare:", options=list(opzioni_partite.keys()))
+    selected_id_partita = opzioni_partite[scelta_p]
+
+    # Dettagli partita
+    match_row = df_partite[df_partite["id_partita"] == selected_id_partita].iloc[0]
+    sq_a = [p.strip() for p in str(match_row.get("squadra_a_giocatori", "")).split(",") if p.strip()]
+    sq_b = [p.strip() for p in str(match_row.get("squadra_b_giocatori", "")).split(",") if p.strip()]
+    tutti_partecipanti = sorted(list(set(sq_a + sq_b)))
+
+    # Calcolo valutazioni partita
+    eval_res = logic.calculate_match_ratings(df_voti, selected_id_partita)
+
+    st.markdown("---")
+
+    # Resoconto Automatico MVP & Peggiore
+    if eval_res["has_votes"]:
+        c_mvp, c_worst = st.columns(2)
+        with c_mvp:
+            if eval_res["mvp"]:
+                st.markdown(f"""
+                <div class="card-mvp">
+                    <div style="font-size: 2.2rem; margin-bottom: 5px;">👑</div>
+                    <h3 style="color: #fbbf24; margin: 0;">MVP DELLA PARTITA</h3>
+                    <h2 style="color: #ffffff; margin: 6px 0;">{eval_res['mvp']['giocatore']}</h2>
+                    <p style="font-size: 1.15rem; color: #38bdf8; margin: 0;"><b>Media Voto: {eval_res['mvp']['media']} / 10</b></p>
+                    <span style="font-size: 0.85rem; color: #94a3b8;">({eval_res['mvp']['voti_ricevuti']} valutazioni ricevute)</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+        with c_worst:
+            if eval_res["worst"] and eval_res["worst"]["giocatore"] != eval_res["mvp"]["giocatore"]:
+                st.markdown(f"""
+                <div class="card-worst">
+                    <div style="font-size: 2.2rem; margin-bottom: 5px;">🧊</div>
+                    <h3 style="color: #ef4444; margin: 0;">MENZIONE PEGGIORE</h3>
+                    <h2 style="color: #ffffff; margin: 6px 0;">{eval_res['worst']['giocatore']}</h2>
+                    <p style="font-size: 1.15rem; color: #f87171; margin: 0;"><b>Media Voto: {eval_res['worst']['media']} / 10</b></p>
+                    <span style="font-size: 0.85rem; color: #94a3b8;">({eval_res['worst']['voti_ricevuti']} valutazioni ricevute)</span>
+                </div>
+                """, unsafe_allow_html=True)
+
+        # Tabella Pagelle Medie
+        st.markdown("#### 📊 Medie Voto Giocatori")
+        st.dataframe(
+            eval_res["ratings"],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Giocatore": st.column_config.TextColumn("Giocatore", width="medium"),
+                "Media Voto": st.column_config.NumberColumn("⭐ Media Voto", format="%.2f"),
+                "Numero Voti": st.column_config.NumberColumn("N° Voti"),
+                "Min": st.column_config.NumberColumn("Min"),
+                "Max": st.column_config.NumberColumn("Max"),
+            }
+        )
+
+        # Commenti ricevuti
+        if eval_res["comments"]:
+            st.markdown("#### 💬 Commenti e Pagelle della Community")
+            for c in eval_res["comments"]:
+                st.markdown(f"""
+                <div class="glass-card" style="padding: 10px 14px; margin-bottom: 8px;">
+                    <b>{c['votante']}</b> su <b>{c['giocatore']}</b> (Voto: <span style="color: #fbbf24; font-weight: bold;">{c['voto']}</span>):<br>
+                    <span style="color: #cbd5e1; font-style: italic;">"{c['commento']}"</span>
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.info("Nessuna votazione ancora inserita per questa partita. Sii il primo a compilare le pagelle qui sotto!")
+
+    st.markdown("---")
+
+    # Form di Votazione Post-Partita
+    st.markdown("### 📝 Compila la tua Pagella")
+    lista_tutti_giocatori = sorted(df_giocatori["nome_completo"].dropna().unique().tolist()) if not df_giocatori.empty else []
+
+    with st.form("form_voti_partita", clear_on_submit=False):
+        votante = st.selectbox("Chi sta votando? (Seleziona il tuo nome):", options=lista_tutti_giocatori, key="votante_select")
+        
+        st.markdown("##### Assegna voto e commento ai protagonisti del match:")
+        
+        voti_input = {}
+        commenti_input = {}
+
+        for p in tutti_partecipanti:
+            col_v1, col_v2 = st.columns([1, 2])
+            with col_v1:
+                voti_input[p] = st.slider(f"Voto per **{p}**", min_value=1.0, max_value=10.0, value=6.0, step=0.5, key=f"voto_{p}")
+            with col_v2:
+                commenti_input[p] = st.text_input(f"Commento per {p}", placeholder="es. Impeccabile in difesa", key=f"comm_{p}")
+
+        submit_pagella = st.form_submit_button("🗳️ Invia Pagella e Salva Valutazioni", use_container_width=True, type="primary")
+
+        if submit_pagella:
+            nuovi_voti_list = []
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            # ID progressivo
+            next_id = 1
+            if not df_voti.empty and "id_voto" in df_voti.columns:
+                next_id = int(df_voti["id_voto"].max()) + 1
+
+            for p in tutti_partecipanti:
+                v = voti_input[p]
+                comm = commenti_input[p].strip()
+                nuovi_voti_list.append({
+                    "id_voto": next_id,
+                    "id_partita": int(selected_id_partita),
+                    "votante": votante,
+                    "giocatore": p,
+                    "voto": float(v),
+                    "commento": comm,
+                    "timestamp": now_str
+                })
+                next_id += 1
+
+            df_updated_voti = pd.concat([df_voti, pd.DataFrame(nuovi_voti_list)], ignore_index=True)
+            storage.save_voti(df_updated_voti)
+            st.success("✅ Pagella inviata con successo! I voti sono stati aggregati.")
+            st.rerun()
+
+
+# ==============================================================================
+# 6. VISTA D: AGGIUNGI NUOVA PARTITA (ADMIN ONLY)
+# ==============================================================================
+def view_add_match(
+    df_giocatori: pd.DataFrame, 
+    df_partite: pd.DataFrame, 
+    is_admin: bool
+):
     st.markdown("<div class='main-title'>➕ Registra Nuova Partita</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-title'>Inserisci data, risultato e formazioni 5 vs 5</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-title'>Inserisci data, formazioni 5 vs 5 e gol individuali per i marcatori</div>", unsafe_allow_html=True)
+
+    if not is_admin:
+        st.warning("🔒 **Accesso Riservato:** Solo l'Amministratore (PIN `1234`) è autorizzato a registrare nuove partite.")
+        return
 
     lista_giocatori = sorted(df_giocatori["nome_completo"].dropna().unique().tolist()) if not df_giocatori.empty else []
     
     if len(lista_giocatori) < 10:
         st.warning(f"⚠️ Servono almeno 10 giocatori registrati nell'anagrafica per creare una partita 5 vs 5. Attualmente disponibili: **{len(lista_giocatori)}**.")
-        st.info("👉 Vai nella sezione **'👥 Aggiungi Giocatore'** per iscrivere nuovi amici.")
+        st.info("👉 Vai nella sezione **'👥 Anagrafica Giocatori'** per iscrivere nuovi amici.")
         return
 
-    with st.form("form_nuova_partita", clear_on_submit=False):
-        # Data della partita
-        data_partita = st.date_input("📅 Data Partita", value=date.today())
+    # Prefill da Convocazioni se presente
+    prefill_a = st.session_state.get("prefill_team_a", [])
+    prefill_b = st.session_state.get("prefill_team_b", [])
+
+    # Filtra solo quelli effettivamente esistenti in lista_giocatori
+    valid_prefill_a = [p for p in prefill_a if p in lista_giocatori][:5]
+    valid_prefill_b = [p for p in prefill_b if p in lista_giocatori][:5]
+
+    data_partita = st.date_input("📅 Data Partita", value=date.today())
+
+    st.markdown("---")
+    st.markdown("#### 👥 Formazioni (Esattamente 5 giocatori per squadra)")
+    
+    f_col1, f_col2 = st.columns(2)
+    with f_col1:
+        st.markdown("##### 🟦 Squadra A")
+        sq_a = st.multiselect(
+            "Seleziona i 5 giocatori di Squadra A:",
+            options=lista_giocatori,
+            default=valid_prefill_a,
+            max_selections=5,
+            key="multiselect_sq_a",
+            help="Seleziona esattamente 5 giocatori"
+        )
+        st.caption(f"Selezionati: {len(sq_a)}/5")
         
-        st.markdown("#### ⚽ Risultato Finale")
-        r_col1, r_col2 = st.columns(2)
-        with r_col1:
-            gol_a = st.number_input("Gol Squadra A 🟦", min_value=0, max_value=50, value=0, step=1)
-        with r_col2:
-            gol_b = st.number_input("Gol Squadra B 🟥", min_value=0, max_value=50, value=0, step=1)
+    with f_col2:
+        st.markdown("##### 🟥 Squadra B")
+        sq_b = st.multiselect(
+            "Seleziona i 5 giocatori di Squadra B:",
+            options=lista_giocatori,
+            default=valid_prefill_b,
+            max_selections=5,
+            key="multiselect_sq_b",
+            help="Seleziona esattamente 5 giocatori"
+        )
+        st.caption(f"Selezionati: {len(sq_b)}/5")
 
-        st.markdown("---")
-        st.markdown("#### 👥 Formazioni (Esattamente 5 giocatori per squadra)")
+    st.markdown("---")
+    st.markdown("#### ⚽ Risultato Finale & Marcatori Individuali")
+
+    r_col1, r_col2 = st.columns(2)
+    with r_col1:
+        gol_a = st.number_input("Gol Totali Squadra A 🟦", min_value=0, max_value=50, value=0, step=1, key="gol_tot_a")
+    with r_col2:
+        gol_b = st.number_input("Gol Totali Squadra B 🟥", min_value=0, max_value=50, value=0, step=1, key="gol_tot_b")
+
+    # Inserimento Marcatori Individuali
+    marcatori_dict = {}
+    if len(sq_a) == 5 and len(sq_b) == 5:
+        st.markdown("##### 🎯 Dettaglio Gol per Giocatore:")
+        col_m_a, col_m_b = st.columns(2)
+        with col_m_a:
+            st.markdown("###### Gol Giocatori Squadra A:")
+            for p in sq_a:
+                marcatori_dict[p] = st.number_input(f"Gol di {p}", min_value=0, max_value=30, value=0, step=1, key=f"goals_a_{p}")
+
+        with col_m_b:
+            st.markdown("###### Gol Giocatori Squadra B:")
+            for p in sq_b:
+                marcatori_dict[p] = st.number_input(f"Gol di {p}", min_value=0, max_value=30, value=0, step=1, key=f"goals_b_{p}")
+
+    st.markdown("---")
+    submit_partita = st.button("💾 Salva Partita e Aggiorna Classifiche", use_container_width=True, type="primary")
+
+    if submit_partita:
+        errori = []
         
-        f_col1, f_col2 = st.columns(2)
-        with f_col1:
-            st.markdown("##### 🟦 Squadra A")
-            sq_a = st.multiselect(
-                "Seleziona i 5 giocatori di Squadra A:",
-                options=lista_giocatori,
-                max_selections=5,
-                key="multiselect_sq_a",
-                help="Seleziona esattamente 5 giocatori"
-            )
-            st.caption(f"Selezionati: {len(sq_a)}/5")
+        if len(sq_a) != 5:
+            errori.append(f"La Squadra A deve contenere esattamente 5 giocatori (selezionati: {len(sq_a)}).")
             
-        with f_col2:
-            st.markdown("##### 🟥 Squadra B")
-            sq_b = st.multiselect(
-                "Seleziona i 5 giocatori di Squadra B:",
-                options=lista_giocatori,
-                max_selections=5,
-                key="multiselect_sq_b",
-                help="Seleziona esattamente 5 giocatori"
-            )
-            st.caption(f"Selezionati: {len(sq_b)}/5")
-
-        st.markdown("---")
-        submit_partita = st.form_submit_button("💾 Salva Partita", use_container_width=True)
-
-        if submit_partita:
-            # Validazioni Stringenti
-            errori = []
+        if len(sq_b) != 5:
+            errori.append(f"La Squadra B deve contenere esattamente 5 giocatori (selezionati: {len(sq_b)}).")
             
-            if len(sq_a) != 5:
-                errori.append(f"La Squadra A deve contenere esattamente 5 giocatori (attualmente ne ha {len(sq_a)}).")
-                
-            if len(sq_b) != 5:
-                errori.append(f"La Squadra B deve contenere esattamente 5 giocatori (attualmente ne ha {len(sq_b)}).")
-                
-            duplicati = set(sq_a).intersection(set(sq_b))
-            if duplicati:
-                errori.append(f"I seguenti giocatori sono stati inseriti in entrambe le squadre: {', '.join(duplicati)}.")
+        duplicati = set(sq_a).intersection(set(sq_b))
+        if duplicati:
+            errori.append(f"I seguenti giocatori sono in entrambe le squadre: {', '.join(duplicati)}.")
 
-            if errori:
-                for err in errori:
-                    st.error(f"❌ {err}")
-            else:
-                # Determinazione esito
-                if gol_a > gol_b:
-                    esito = "Vittoria Squadra A"
-                elif gol_b > gol_a:
-                    esito = "Vittoria Squadra B"
-                else:
-                    esito = "Pareggio"
+        # Validazione quadratura gol individuali vs gol totali
+        if len(sq_a) == 5 and len(sq_b) == 5:
+            sum_gol_a = sum(marcatori_dict.get(p, 0) for p in sq_a)
+            sum_gol_b = sum(marcatori_dict.get(p, 0) for p in sq_b)
 
-                # Nuovo ID progressivo
-                nuovo_id = 1
-                if not df_partite.empty and "id_partita" in df_partite.columns:
-                    nuovo_id = int(df_partite["id_partita"].max()) + 1
+            if sum_gol_a != gol_a:
+                errori.append(f"La somma dei gol individuali di Squadra A ({sum_gol_a}) non coincide con i Gol Totali inseriti ({gol_a}).")
+            if sum_gol_b != gol_b:
+                errori.append(f"La somma dei gol individuali di Squadra B ({sum_gol_b}) non coincide con i Gol Totali inseriti ({gol_b}).")
 
-                nuova_riga = {
-                    "id_partita": nuovo_id,
-                    "data": data_partita.strftime("%Y-%m-%d"),
-                    "squadra_a_giocatori": ", ".join(sq_a),
-                    "squadra_b_giocatori": ", ".join(sq_b),
-                    "gol_squadra_a": int(gol_a),
-                    "gol_squadra_b": int(gol_b),
-                    "esito": esito
-                }
-
-                df_updated = pd.concat([df_partite, pd.DataFrame([nuova_riga])], ignore_index=True)
-                save_partite(df_updated)
-                
-                st.success("✅ Partita registrata con successo! Le classifiche sono state aggiornate.")
-                st.balloons()
-                st.rerun()
-
-
-# ==============================================================================
-# VISTA C: AGGIUNGI & GESTISCI GIOCATORE (ANAGRAFICA)
-# ==============================================================================
-def view_add_player(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame):
-    st.markdown("<div class='main-title'>👤 Anagrafica Giocatori</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-title'>Aggiungi nuovi amici al gruppo o gestisci i giocatori registrati</div>", unsafe_allow_html=True)
-
-    # Inserimento nuovo giocatore
-    with st.form("form_nuovo_giocatore", clear_on_submit=True):
-        nome_input = st.text_input("Nome e Cognome del Giocatore", placeholder="es. Mario Rossi")
-        submit_giocatore = st.form_submit_button("➕ Aggiungi Giocatore", use_container_width=True)
-
-        if submit_giocatore:
-            nome_clean = nome_input.strip()
-            
-            if not nome_clean:
-                st.error("❌ Il nome del giocatore non può essere vuoto.")
-            else:
-                # Controllo duplicati case-insensitive
-                nomi_esistenti = [str(n).strip().lower() for n in df_giocatori["nome_completo"].dropna().tolist()] if not df_giocatori.empty else []
-                if nome_clean.lower() in nomi_esistenti:
-                    st.error(f"❌ Esiste già un giocatore registrato con il nome '{nome_clean}'.")
-                else:
-                    nuovo_id = 1
-                    if not df_giocatori.empty and "id_giocatore" in df_giocatori.columns:
-                        nuovo_id = int(df_giocatori["id_giocatore"].max()) + 1
-
-                    nuova_riga = {
-                        "id_giocatore": nuovo_id,
-                        "nome_completo": nome_clean,
-                        "data_creazione": date.today().strftime("%Y-%m-%d")
-                    }
-
-                    df_updated = pd.concat([df_giocatori, pd.DataFrame([nuova_riga])], ignore_index=True)
-                    save_giocatori(df_updated)
-                    st.success(f"✅ Giocatore **{nome_clean}** aggiunto con successo (ID #{nuovo_id})!")
-                    st.rerun()
-
-    # Sezione Eliminazione Singolo Giocatore
-    with st.expander("🗑️ Elimina un Giocatore", expanded=False):
-        if df_giocatori.empty:
-            st.info("Nessun giocatore registrato da eliminare.")
+        if errori:
+            for err in errori:
+                st.error(f"❌ {err}")
         else:
-            lista_nomi_del = sorted(df_giocatori["nome_completo"].dropna().unique().tolist())
-            del_player = st.selectbox(
-                "Seleziona il giocatore da eliminare:",
-                options=lista_nomi_del,
-                key="select_del_player"
-            )
-            
-            # Verifica presenza nello storico partite
-            partite_con_giocatore = 0
-            if not df_partite.empty:
-                for _, m in df_partite.iterrows():
-                    raw = str(m.get("squadra_a_giocatori", "")) + ", " + str(m.get("squadra_b_giocatori", ""))
-                    if del_player in [p.strip() for p in raw.split(",")]:
-                        partite_con_giocatore += 1
-            
-            if partite_con_giocatore > 0:
-                st.warning(f"⚠️ **{del_player}** è presente in **{partite_con_giocatore}** partita/e registrata/e. Rimuovendolo non sarà più selezionabile per nuove partite.")
+            if gol_a > gol_b:
+                esito = "Vittoria Squadra A"
+            elif gol_b > gol_a:
+                esito = "Vittoria Squadra B"
+            else:
+                esito = "Pareggio"
 
-            btn_del_gio = st.button(f"🗑️ Elimina '{del_player}'", type="primary", use_container_width=True, key="btn_del_single_player")
-            if btn_del_gio:
-                df_updated = df_giocatori[df_giocatori["nome_completo"] != del_player].copy()
-                save_giocatori(df_updated)
-                st.success(f"✅ Giocatore **{del_player}** eliminato con successo!")
-                st.rerun()
+            nuovo_id = 1
+            if not df_partite.empty and "id_partita" in df_partite.columns:
+                nuovo_id = int(df_partite["id_partita"].max()) + 1
+
+            marcatori_json = logic.serialize_marcatori(marcatori_dict)
+
+            nuova_riga = {
+                "id_partita": nuovo_id,
+                "data": data_partita.strftime("%Y-%m-%d"),
+                "squadra_a_giocatori": ", ".join(sq_a),
+                "squadra_b_giocatori": ", ".join(sq_b),
+                "gol_squadra_a": int(gol_a),
+                "gol_squadra_b": int(gol_b),
+                "esito": esito,
+                "marcatori": marcatori_json
+            }
+
+            df_updated = pd.concat([df_partite, pd.DataFrame([nuova_riga])], ignore_index=True)
+            storage.save_partite(df_updated)
+            
+            # Svuota prefill se era attivo
+            st.session_state.pop("prefill_team_a", None)
+            st.session_state.pop("prefill_team_b", None)
+            
+            st.success("✅ Partita registrata con successo! Rating ELO e classifiche aggiornati.")
+            st.balloons()
+            st.rerun()
+
+
+# ==============================================================================
+# 7. VISTA E: ANAGRAFICA GIOCATORI (ADMIN ONLY MODIFICATIONS)
+# ==============================================================================
+def view_anagrafica(
+    df_giocatori: pd.DataFrame, 
+    df_partite: pd.DataFrame, 
+    is_admin: bool
+):
+    st.markdown("<div class='main-title'>👤 Anagrafica Giocatori</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-title'>Gestione del gruppo, anagrafica e appartenenza alla Cerchia Ristretta</div>", unsafe_allow_html=True)
+
+    if not is_admin:
+        st.info("👁️ **Modalità Sola Lettura:** Puoi consultare l'elenco dei giocatori iscritti. L'aggiunta o rimozione è riservata all'Amministratore (PIN `1234`).")
+    else:
+        # Inserimento nuovo giocatore
+        with st.form("form_nuovo_giocatore", clear_on_submit=True):
+            col_n1, col_n2 = st.columns([3, 2])
+            with col_n1:
+                nome_input = st.text_input("Nome e Cognome del Giocatore", placeholder="es. Mario Rossi")
+            with col_n2:
+                st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                in_gruppo_check = st.checkbox("⭐ Includi nella Cerchia Ristretta", value=False)
+
+            submit_giocatore = st.form_submit_button("➕ Aggiungi Giocatore", use_container_width=True)
+
+            if submit_giocatore:
+                nome_clean = nome_input.strip()
+                if not nome_clean:
+                    st.error("❌ Il nome del giocatore non può essere vuoto.")
+                else:
+                    nomi_esistenti = [str(n).strip().lower() for n in df_giocatori["nome_completo"].dropna().tolist()] if not df_giocatori.empty else []
+                    if nome_clean.lower() in nomi_esistenti:
+                        st.error(f"❌ Esiste già un giocatore registrato con il nome '{nome_clean}'.")
+                    else:
+                        nuovo_id = 1
+                        if not df_giocatori.empty and "id_giocatore" in df_giocatori.columns:
+                            nuovo_id = int(df_giocatori["id_giocatore"].max()) + 1
+
+                        nuova_riga = {
+                            "id_giocatore": nuovo_id,
+                            "nome_completo": nome_clean,
+                            "data_creazione": date.today().strftime("%Y-%m-%d"),
+                            "in_gruppo_ristretto": bool(in_gruppo_check)
+                        }
+
+                        df_updated = pd.concat([df_giocatori, pd.DataFrame([nuova_riga])], ignore_index=True)
+                        storage.save_giocatori(df_updated)
+                        st.success(f"✅ Giocatore **{nome_clean}** aggiunto con successo (ID #{nuovo_id})!")
+                        st.rerun()
+
+        # Gestione Rapida Cerchia Ristretta
+        with st.expander("⭐ Gestione Rapida Cerchia Ristretta", expanded=False):
+            st.caption("Attiva o disattiva l'appartenenza alla cerchia ristretta con un clic:")
+            if not df_giocatori.empty:
+                for _, p_row in df_giocatori.sort_values(by="nome_completo").iterrows():
+                    p_id = int(p_row["id_giocatore"])
+                    p_name = str(p_row["nome_completo"])
+                    p_status = bool(p_row.get("in_gruppo_ristretto", False))
+                    
+                    cg1, cg2 = st.columns([3, 1])
+                    with cg1:
+                        badge_icon = "⭐ **Cerchia Ristretta**" if p_status else "👤 *Esterno / Occasionale*"
+                        st.write(f"**{p_name}** — {badge_icon}")
+                    with cg2:
+                        btn_label = "Rimuovi ❌" if p_status else "Aggiungi ⭐"
+                        if st.button(btn_label, key=f"anag_toggle_{p_id}", use_container_width=True):
+                            storage.toggle_giocatore_gruppo_ristretto(p_id, not p_status)
+                            st.rerun()
+
+        # Eliminazione Giocatore
+        with st.expander("🗑️ Elimina un Giocatore", expanded=False):
+            if df_giocatori.empty:
+                st.info("Nessun giocatore registrato da eliminare.")
+            else:
+                lista_nomi_del = sorted(df_giocatori["nome_completo"].dropna().unique().tolist())
+                del_player = st.selectbox("Seleziona il giocatore da eliminare:", options=lista_nomi_del, key="select_del_player")
+                
+                partite_con_giocatore = 0
+                if not df_partite.empty:
+                    for _, m in df_partite.iterrows():
+                        raw = str(m.get("squadra_a_giocatori", "")) + ", " + str(m.get("squadra_b_giocatori", ""))
+                        if del_player in [p.strip() for p in raw.split(",")]:
+                            partite_con_giocatore += 1
+                
+                if partite_con_giocatore > 0:
+                    st.warning(f"⚠️ **{del_player}** è presente in **{partite_con_giocatore}** partita/e registrata/e.")
+
+                btn_del_gio = st.button(f"🗑️ Elimina '{del_player}'", type="primary", use_container_width=True, key="btn_del_single_player")
+                if btn_del_gio:
+                    df_updated = df_giocatori[df_giocatori["nome_completo"] != del_player].copy()
+                    storage.save_giocatori(df_updated)
+                    st.success(f"✅ Giocatore **{del_player}** eliminato!")
+                    st.rerun()
 
     st.markdown("---")
     st.markdown(f"### 📋 Elenco Giocatori Iscritti ({len(df_giocatori)})")
@@ -835,58 +1465,64 @@ def view_add_player(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame):
         st.info("Nessun giocatore registrato.")
     else:
         df_view = df_giocatori.sort_values(by="id_giocatore", ascending=True).copy()
+        if "in_gruppo_ristretto" in df_view.columns:
+            df_view["Cerchia Ristretta"] = df_view["in_gruppo_ristretto"].apply(lambda x: "⭐ Membro Fisso" if bool(x) else "👤 Occasionale")
+        else:
+            df_view["Cerchia Ristretta"] = "👤 Occasionale"
+
         st.dataframe(
-            df_view,
+            df_view[["id_giocatore", "nome_completo", "Cerchia Ristretta", "data_creazione"]],
             use_container_width=True,
             hide_index=True,
             column_config={
                 "id_giocatore": st.column_config.NumberColumn("ID", width="small"),
                 "nome_completo": st.column_config.TextColumn("Nome Completo", width="medium"),
+                "Cerchia Ristretta": st.column_config.TextColumn("Status Gruppo", width="medium", help="Appartenenza al Gruppo Ristretto"),
                 "data_creazione": st.column_config.TextColumn("Data Iscrizione", width="small"),
             }
         )
 
 
 # ==============================================================================
-# VISTA D: STORICO PARTITE
+# 8. VISTA F: STORICO PARTITE (VIEW + ADMIN DELETE)
 # ==============================================================================
-def view_match_history(df_partite: pd.DataFrame):
+def view_match_history(
+    df_partite: pd.DataFrame, 
+    is_admin: bool
+):
     st.markdown("<div class='main-title'>📜 Storico Partite</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-title'>Tutte le sfide registrate in ordine cronologico inverso</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-title'>Archivio di tutte le sfide disputate con marcatori e formazioni</div>", unsafe_allow_html=True)
 
     if df_partite.empty:
-        st.info("Nessuna partita presente nello storico. Registra una nuova partita per iniziare!")
+        st.info("Nessuna partita presente nello storico.")
         return
 
-    # Sezione Eliminazione Singola Partita
-    with st.expander("🗑️ Elimina una Partita", expanded=False):
-        opzioni_partite = {}
-        for _, m in df_partite.sort_values(by=["data", "id_partita"], ascending=[False, False]).iterrows():
-            id_p = m.get("id_partita", "")
-            d = m.get("data", "")
-            g_a = m.get("gol_squadra_a", 0)
-            g_b = m.get("gol_squadra_b", 0)
-            esito = m.get("esito", "")
-            label = f"Partita #{id_p} del {d} — Squadra A ({g_a}) vs Squadra B ({g_b}) [{esito}]"
-            opzioni_partite[label] = id_p
+    # Eliminazione Partita (Admin Only)
+    if is_admin:
+        with st.expander("🗑️ Elimina una Partita", expanded=False):
+            opzioni_partite = {}
+            for _, m in df_partite.sort_values(by=["data", "id_partita"], ascending=[False, False]).iterrows():
+                id_p = m.get("id_partita", "")
+                d = m.get("data", "")
+                g_a = m.get("gol_squadra_a", 0)
+                g_b = m.get("gol_squadra_b", 0)
+                esito = m.get("esito", "")
+                label = f"Partita #{id_p} del {d} — A ({g_a}) vs B ({g_b}) [{esito}]"
+                opzioni_partite[label] = id_p
 
-        scelta_partita_str = st.selectbox(
-            "Seleziona la partita da eliminare:",
-            options=list(opzioni_partite.keys()),
-            key="select_del_match"
-        )
-        id_da_eliminare = opzioni_partite[scelta_partita_str]
+            scelta_partita_str = st.selectbox("Seleziona la partita da eliminare:", options=list(opzioni_partite.keys()), key="select_del_match")
+            id_da_eliminare = opzioni_partite[scelta_partita_str]
 
-        btn_del_match = st.button("🗑️ Elimina Partita Selezionata", type="primary", use_container_width=True, key="btn_del_single_match")
-        if btn_del_match:
-            df_updated = df_partite[df_partite["id_partita"] != id_da_eliminare].copy()
-            save_partite(df_updated)
-            st.success("✅ Partita eliminata con successo!")
-            st.rerun()
+            btn_del_match = st.button("🗑️ Elimina Partita Selezionata", type="primary", use_container_width=True, key="btn_del_single_match")
+            if btn_del_match:
+                df_updated = df_partite[df_partite["id_partita"] != id_da_eliminare].copy()
+                storage.save_partite(df_updated)
+                st.success("✅ Partita eliminata con successo!")
+                st.rerun()
 
-    st.markdown("---")
+        st.markdown("---")
 
-    # Ordinamento cronologico inverso (dalla più recente alla più vecchia)
+    # Ordinamento cronologico inverso
     df_sorted = df_partite.sort_values(by=["data", "id_partita"], ascending=[False, False]).reset_index(drop=True)
 
     for idx, match in df_sorted.iterrows():
@@ -898,7 +1534,10 @@ def view_match_history(df_partite: pd.DataFrame):
         sq_a = match.get("squadra_a_giocatori", "")
         sq_b = match.get("squadra_b_giocatori", "")
 
-        # Colore esito
+        # Marcatori
+        marcatori_dict = logic.parse_marcatori(match.get("marcatori", ""))
+        marcatori_str = ", ".join([f"{p} ({g})" for p, g in marcatori_dict.items()]) if marcatori_dict else "Nessun marcatore specificato"
+
         if "Squadra A" in esito:
             badge_color = "#38bdf8"
         elif "Squadra B" in esito:
@@ -921,7 +1560,7 @@ def view_match_history(df_partite: pd.DataFrame):
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
                 <div class="team-box">
-                    <span class="team-title">🟦 Formazione A:</span><br>
+                    <span class="team-title-a">🟦 Formazione A:</span><br>
                     {sq_a}
                 </div>
                 <div class="team-box">
@@ -929,112 +1568,112 @@ def view_match_history(df_partite: pd.DataFrame):
                     {sq_b}
                 </div>
             </div>
+            <div style="margin-top: 8px; font-size: 0.85rem; color: #94a3b8; border-top: 1px solid #334155; padding-top: 6px;">
+                ⚽ <b>Marcatori:</b> {marcatori_str}
+            </div>
         </div>
         """
         st.markdown(card_html, unsafe_allow_html=True)
 
 
 # ==============================================================================
-# MAIN ROUTING & APPLICAZIONE
+# 9. MAIN ROUTER & APP
 # ==============================================================================
 def main():
-    # Inizializzazione session state per l'autenticazione
+    # Inizializzazione Session State
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
+    if "user_role" not in st.session_state:
+        st.session_state["user_role"] = "viewer"
 
-    # Controllo Autenticazione (PIN Gate)
+    # Controllo Autenticazione PIN Gate
     if not st.session_state["authenticated"]:
         render_pin_gate()
         return
 
-    # Caricamento Dati
-    df_giocatori, df_partite, storage_source = load_data()
+    is_admin = (st.session_state.get("user_role") == "admin")
 
-    # Sidebar con navigazione e Strumenti di Amministrazione
+    # Caricamento Dati
+    df_giocatori, df_partite, df_convocazioni, df_voti, storage_source = storage.load_data()
+
+    # Sidebar
     with st.sidebar:
         st.markdown("### ⚽ Calcetto Manager")
+        
+        # Badge Ruolo
+        if is_admin:
+            st.markdown("<span class='role-badge-admin'>🛡️ AMMINISTRATORE</span>", unsafe_allow_html=True)
+        else:
+            st.markdown("<span class='role-badge-viewer'>👁️ SOLA LETTURA (VIEWER)</span>", unsafe_allow_html=True)
+
         st.caption(f"Persistenza: **{storage_source}**")
         st.markdown("---")
-        
+
+        opzioni_menu = [
+            "🏆 Tabellone & Classifiche",
+            "🏆 Classifica Amici (Gruppo Ristretto)",
+            "📅 Convocazioni & Presenze",
+            "⭐ Pagelle & MVP",
+            "➕ Aggiungi Nuova Partita",
+            "👤 Anagrafica Giocatori",
+            "📜 Storico Partite"
+        ]
+
+        target_nav = st.session_state.pop("nav_target", None)
+        default_index = opzioni_menu.index(target_nav) if target_nav in opzioni_menu else 0
+
         scelta_menu = st.radio(
             "Navigazione Sezioni:",
-            options=[
-                "🏆 Tabellone & Classifiche",
-                "➕ Aggiungi Nuova Partita",
-                "👥 Aggiungi Giocatore",
-                "📜 Storico Partite"
-            ],
-            index=0
+            options=opzioni_menu,
+            index=default_index
         )
-        
-        st.markdown("---")
-        
-        # Strumenti Amministrativi / Reset Rapido
-        with st.expander("⚙️ Gestione & Reset Dati", expanded=False):
-            st.caption("Strumenti rapidi per svuotare i dati di test o resettare l'archivio.")
-            
-            # Svuota Partite
-            if st.button("🧹 Svuota Tutte le Partite", use_container_width=True, help="Elimina tutte le partite registrate"):
-                st.session_state["confirm_reset_matches"] = True
-            
-            if st.session_state.get("confirm_reset_matches", False):
-                st.warning("⚠️ Sei sicuro di voler cancellare TUTTE le partite?")
-                col_m1, col_m2 = st.columns(2)
-                with col_m1:
-                    if st.button("Sì, Svuota", key="btn_yes_clear_matches", type="primary", use_container_width=True):
-                        empty_p = pd.DataFrame(columns=[
-                            "id_partita", "data", "squadra_a_giocatori", 
-                            "squadra_b_giocatori", "gol_squadra_a", "gol_squadra_b", "esito"
-                        ])
-                        save_partite(empty_p)
-                        st.session_state["confirm_reset_matches"] = False
-                        st.success("Tutte le partite sono state rimosse!")
-                        st.rerun()
-                with col_m2:
-                    if st.button("Annulla", key="btn_no_clear_matches", use_container_width=True):
-                        st.session_state["confirm_reset_matches"] = False
-                        st.rerun()
 
-            # Svuota Giocatori
-            if st.button("👥 Svuota Tutti i Giocatori", use_container_width=True, help="Elimina tutti i giocatori iscritti"):
-                st.session_state["confirm_reset_players"] = True
+        st.markdown("---")
+
+        # Gestione Admin / Reset (Solo Admin)
+        if is_admin:
+            with st.expander("⚙️ Gestione & Reset Dati", expanded=False):
+                st.caption("Strumenti amministrativi per la gestione rapida dell'archivio.")
                 
-            if st.session_state.get("confirm_reset_players", False):
-                st.warning("⚠️ Sei sicuro di voler cancellare TUTTI i giocatori?")
-                col_p1, col_p2 = st.columns(2)
-                with col_p1:
-                    if st.button("Sì, Svuota", key="btn_yes_clear_players", type="primary", use_container_width=True):
-                        empty_g = pd.DataFrame(columns=["id_giocatore", "nome_completo", "data_creazione"])
-                        save_giocatori(empty_g)
-                        st.session_state["confirm_reset_players"] = False
-                        st.success("Tutti i giocatori sono stati rimossi!")
-                        st.rerun()
-                with col_p2:
-                    if st.button("Annulla", key="btn_no_clear_players", use_container_width=True):
-                        st.session_state["confirm_reset_players"] = False
-                        st.rerun()
+                # Reset Dati Demo
+                if st.button("🔄 Ripristina Dati Esempio", use_container_width=True):
+                    storage.reset_all_to_demo()
+                    st.success("Dati demo ripristinati!")
+                    st.rerun()
 
-            # Ripristino Demo
-            if st.button("🔄 Ripristina Dati Esempio", use_container_width=True, help="Reimposta i giocatori e le partite demo iniziali"):
-                save_giocatori(pd.DataFrame(GIOCATORI_DEFAULT))
-                save_partite(pd.DataFrame(PARTITE_DEFAULT))
-                st.success("Dati di esempio ripristinati con successo!")
-                st.rerun()
+                # Svuota Partite
+                if st.button("🧹 Svuota Tutte le Partite", use_container_width=True):
+                    storage.save_partite(pd.DataFrame(columns=["id_partita", "data", "squadra_a_giocatori", "squadra_b_giocatori", "gol_squadra_a", "gol_squadra_b", "esito", "marcatori"]))
+                    st.success("Tutte le partite sono state rimosse.")
+                    st.rerun()
 
-        st.markdown("---")
+                # Svuota Giocatori
+                if st.button("👥 Svuota Tutti i Giocatori", use_container_width=True):
+                    storage.save_giocatori(pd.DataFrame(columns=["id_giocatore", "nome_completo", "data_creazione", "in_gruppo_ristretto"]))
+                    st.success("Tutti i giocatori sono stati rimossi.")
+                    st.rerun()
+
+        st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state["authenticated"] = False
+            st.session_state["user_role"] = "viewer"
             st.rerun()
 
-    # Routing delle viste
+    # Router Viste
     if scelta_menu == "🏆 Tabellone & Classifiche":
-        view_dashboard(df_giocatori, df_partite, storage_source)
+        view_dashboard(df_giocatori, df_partite, df_voti, storage_source)
+    elif scelta_menu == "🏆 Classifica Amici (Gruppo Ristretto)":
+        view_gruppo_ristretto(df_giocatori, df_partite, df_voti, storage_source, is_admin)
+    elif scelta_menu == "📅 Convocazioni & Presenze":
+        view_convocazioni(df_giocatori, df_partite, df_convocazioni, is_admin)
+    elif scelta_menu == "⭐ Pagelle & MVP":
+        view_pagelle(df_giocatori, df_partite, df_voti, is_admin)
     elif scelta_menu == "➕ Aggiungi Nuova Partita":
-        view_add_match(df_giocatori, df_partite)
-    elif scelta_menu == "👥 Aggiungi Giocatore":
-        view_add_player(df_giocatori, df_partite)
+        view_add_match(df_giocatori, df_partite, is_admin)
+    elif scelta_menu == "👤 Anagrafica Giocatori":
+        view_anagrafica(df_giocatori, df_partite, is_admin)
     elif scelta_menu == "📜 Storico Partite":
-        view_match_history(df_partite)
+        view_match_history(df_partite, is_admin)
 
 
 if __name__ == "__main__":

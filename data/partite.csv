@@ -1,1 +1,3 @@
-id_partita,data,squadra_a_giocatori,squadra_b_giocatori,gol_squadra_a,gol_squadra_b,esito
+id_partita,data,squadra_a_giocatori,squadra_b_giocatori,gol_squadra_a,gol_squadra_b,esito,marcatori
+1,2024-02-01,"Marco Rossi, Luca Bianchi, Matteo Ferrari, Alessandro Russo, Davide Colombo","Federico Ricci, Andrea Marino, Lorenzo Greco, Simone Bruno, Gabriele Gallo",7,5,Vittoria Squadra A,"{""Marco Rossi"": 3, ""Luca Bianchi"": 2, ""Matteo Ferrari"": 2, ""Federico Ricci"": 3, ""Andrea Marino"": 2}"
+2,2024-02-08,"Marco Rossi, Luca Bianchi, Francesco Conti, Giovanni De Luca, Davide Colombo","Matteo Ferrari, Alessandro Russo, Andrea Marino, Lorenzo Greco, Gabriele Gallo",4,4,Pareggio,"{""Marco Rossi"": 2, ""Francesco Conti"": 2, ""Alessandro Russo"": 3, ""Matteo Ferrari"": 1}"
