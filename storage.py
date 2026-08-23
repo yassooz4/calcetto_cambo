@@ -119,6 +119,61 @@ VOTI_DEFAULT = [
 # ==============================================================================
 # GOOGLE SHEETS HELPER & DIAGNOSTICA
 # ==============================================================================
+def sanitize_private_key(raw_pk: str) -> str:
+    """
+    Sanitizza e normalizza una chiave privata RSA/Service Account Google:
+    1. Rimuove apici esterni extra (singoli, doppi, tripli apici da configurazioni multiline TOML).
+    2. Risolve le sequenze di escape (\\n -> \n, \\r -> \r).
+    3. Estrae il payload Base64 pulito (rimuovendo spazi, newlines e caratteri spuri non Base64 come punti).
+    4. Ricostruisce il blocco PEM standard con header -----BEGIN PRIVATE KEY-----, righe a 64 char e footer -----END PRIVATE KEY-----.
+    """
+    if not raw_pk:
+        return ""
+
+    pk = str(raw_pk).strip()
+
+    # Rimuove apici esterni (singoli, doppi o tripli)
+    for _ in range(3):
+        pk = pk.strip()
+        if (pk.startswith('"""') and pk.endswith('"""')) or (pk.startswith("'''") and pk.endswith("'''")):
+            pk = pk[3:-3].strip()
+        elif (pk.startswith('"') and pk.endswith('"')) or (pk.startswith("'") and pk.endswith("'")):
+            pk = pk[1:-1].strip()
+
+    # Risolve sequenze di escape
+    pk = pk.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\r\n", "\n").replace("\r", "\n")
+
+    # Gestione delimitatori PEM
+    import re
+    begin_match = re.search(r"-----BEGIN[^-]+-----", pk)
+    end_match = re.search(r"-----END[^-]+-----", pk)
+
+    if begin_match and end_match:
+        body = pk[begin_match.end():end_match.start()]
+    elif begin_match:
+        body = pk[begin_match.end():]
+    elif end_match:
+        body = pk[:end_match.start()]
+    else:
+        body = pk
+
+    # Rimuove qualsiasi carattere non Base64 standard (A-Z, a-z, 0-9, +, /, =)
+    clean_body = re.sub(r"[^A-Za-z0-9+/=]", "", body)
+
+    if clean_body:
+        chunk_size = 64
+        lines = [clean_body[i:i + chunk_size] for i in range(0, len(clean_body), chunk_size)]
+        return "-----BEGIN PRIVATE KEY-----\n" + "\n".join(lines) + "\n-----END PRIVATE KEY-----\n"
+
+    # Fallback se non è stato possibile estrarre un body
+    pk = pk.strip()
+    if not pk.startswith("-----BEGIN"):
+        pk = "-----BEGIN PRIVATE KEY-----\n" + pk
+    if not pk.endswith("-----"):
+        pk = pk + "\n-----END PRIVATE KEY-----\n"
+    return pk
+
+
 def get_gsheets_config():
     """
     Recupera le credenziali del Service Account e l'identificativo/URL dello Spreadsheet
@@ -238,12 +293,8 @@ def get_gsheets_config():
         if "auth_uri" not in sa_info:
             sa_info["auth_uri"] = "https://accounts.google.com/o/oauth2/auth"
             
-        # Gestione sicura dei caratteri di escape newline (\n) nella chiave privata
-        pk = str(sa_info["private_key"]).strip()
-        if (pk.startswith('"') and pk.endswith('"')) or (pk.startswith("'") and pk.endswith("'")):
-            pk = pk[1:-1]
-        pk = pk.replace("\\n", "\n")
-        sa_info["private_key"] = pk
+        # Sanitizzazione e normalizzazione avanzata della chiave privata RSA
+        sa_info["private_key"] = sanitize_private_key(sa_info["private_key"])
 
         return sa_info, spreadsheet_target, None
 
