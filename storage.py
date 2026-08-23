@@ -118,70 +118,156 @@ VOTI_DEFAULT = [
 # GOOGLE SHEETS HELPER
 # ==============================================================================
 def get_gsheets_config():
-    """Recupera la configurazione e le credenziali di Google Sheets dai segreti di Streamlit."""
+    """
+    Recupera le credenziali del Service Account e l'identificativo/URL dello Spreadsheet
+    dai segreti di Streamlit (st.secrets), supportando molteplici strutture:
+      - [connections.gsheets] (standard Streamlit GSheets connection)
+      - [gcp_service_account]
+      - [service_account]
+      - [gspread]
+      - radice di st.secrets
+    
+    Restituisce: (sa_info_dict, spreadsheet_target_str) o (None, None)
+    """
     try:
+        if not hasattr(st, "secrets"):
+            return None, None
+            
+        sa_info = {}
+        spreadsheet_target = None
+        
+        # 1. Controlla possibili dizionari / sezioni di segreti
+        sections_to_check = []
+        
+        # [connections.gsheets]
         if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
-            return dict(st.secrets["connections"]["gsheets"])
-        elif "gspread" in st.secrets:
-            return dict(st.secrets["gspread"])
-        elif "service_account" in st.secrets:
-            return dict(st.secrets["service_account"])
+            sections_to_check.append(dict(st.secrets["connections"]["gsheets"]))
+            
+        # [gcp_service_account]
+        if "gcp_service_account" in st.secrets:
+            sections_to_check.append(dict(st.secrets["gcp_service_account"]))
+            
+        # [service_account]
+        if "service_account" in st.secrets:
+            sections_to_check.append(dict(st.secrets["service_account"]))
+            
+        # [gspread]
+        if "gspread" in st.secrets:
+            sections_to_check.append(dict(st.secrets["gspread"]))
+            
+        # Radice st.secrets (solo valori scalari/stringhe)
+        try:
+            root_dict = {k: st.secrets[k] for k in st.secrets.keys() if not hasattr(st.secrets[k], "keys")}
+            sections_to_check.append(root_dict)
+        except Exception:
+            pass
+
+        # Chiavi tipiche del Service Account Google
+        sa_keys = [
+            "type", "project_id", "private_key_id", "private_key",
+            "client_email", "client_id", "auth_uri", "token_uri",
+            "auth_provider_x509_cert_url", "client_x509_cert_url", "universe_domain"
+        ]
+
+        # Chiavi possibili per lo Spreadsheet URL/ID
+        sheet_target_keys = [
+            "spreadsheet", "spreadsheet_url", "url", "sheet_id",
+            "spreadsheet_id", "spreadsheet_name", "title"
+        ]
+
+        # Popola sa_info e spreadsheet_target combinando le sezioni
+        for sec in sections_to_check:
+            if not isinstance(sec, dict):
+                continue
+            for k in sa_keys:
+                if k in sec and k not in sa_info:
+                    sa_info[k] = sec[k]
+            if not spreadsheet_target:
+                for sk in sheet_target_keys:
+                    if sk in sec and sec[sk]:
+                        spreadsheet_target = str(sec[sk]).strip()
+                        break
+
+        # Controlla anche a livello radice di st.secrets per spreadsheet_target se non ancora trovato
+        if not spreadsheet_target:
+            for sk in sheet_target_keys:
+                if sk in st.secrets:
+                    val = st.secrets[sk]
+                    if isinstance(val, str) and val.strip():
+                        spreadsheet_target = val.strip()
+                        break
+
+        # Verifica campi minimi obbligatori per autenticazione Service Account
+        if "private_key" in sa_info and "client_email" in sa_info:
+            # Imposta valori di default per campi opzionali standard
+            if "type" not in sa_info:
+                sa_info["type"] = "service_account"
+            if "token_uri" not in sa_info:
+                sa_info["token_uri"] = "https://oauth2.googleapis.com/token"
+            if "auth_uri" not in sa_info:
+                sa_info["auth_uri"] = "https://accounts.google.com/o/oauth2/auth"
+                
+            # Gestione sicura dei caratteri di escape newline (\n) nella chiave privata
+            pk = str(sa_info["private_key"]).strip()
+            if (pk.startswith('"') and pk.endswith('"')) or (pk.startswith("'") and pk.endswith("'")):
+                pk = pk[1:-1]
+            pk = pk.replace("\\n", "\n")
+            sa_info["private_key"] = pk
+
+            return sa_info, spreadsheet_target
+
     except Exception:
         pass
-    return None
+
+    return None, None
 
 
 def is_gsheets_configured() -> bool:
     """Verifica se le credenziali di Google Sheets sono disponibili nei segreti."""
     if not GSPREAD_AVAILABLE:
         return False
-    cfg = get_gsheets_config()
-    return cfg is not None and len(cfg) > 0
+    sa_info, spreadsheet_target = get_gsheets_config()
+    return (sa_info is not None) and bool(spreadsheet_target)
 
 
 def get_gsheets_spreadsheet():
     """Inizializza la connessione a Google Sheets tramite gspread e apre lo spreadsheet."""
-    if not is_gsheets_configured():
+    if not GSPREAD_AVAILABLE:
         return None
+        
+    sa_info, spreadsheet_target = get_gsheets_config()
+    if not sa_info or not spreadsheet_target:
+        return None
+        
     try:
-        cfg = get_gsheets_config()
-        if not cfg:
-            return None
-        
-        spreadsheet_target = (
-            cfg.get("spreadsheet")
-            or cfg.get("spreadsheet_url")
-            or cfg.get("url")
-            or cfg.get("sheet_id")
-            or cfg.get("spreadsheet_name")
-        )
-        
-        sa_keys = [
-            "type", "project_id", "private_key_id", "private_key",
-            "client_email", "client_id", "auth_uri", "token_uri",
-            "auth_provider_x509_cert_url", "client_x509_cert_url", "universe_domain"
-        ]
-        sa_info = {k: cfg[k] for k in sa_keys if k in cfg}
-        
-        if "private_key" in sa_info and isinstance(sa_info["private_key"], str):
-            sa_info["private_key"] = sa_info["private_key"].replace("\\n", "\n")
-            
         creds = Credentials.from_service_account_info(sa_info, scopes=SCOPES)
         client = gspread.authorize(creds)
         
-        if not spreadsheet_target:
-            return None
-            
-        spreadsheet_target = str(spreadsheet_target).strip()
-        if spreadsheet_target.startswith("http://") or spreadsheet_target.startswith("https://"):
-            return client.open_by_url(spreadsheet_target)
-        elif len(spreadsheet_target) > 30 and " " not in spreadsheet_target:
+        target = str(spreadsheet_target).strip()
+        
+        # Caso 1: URL completo (inclusi parametri /edit?gid=... o simili)
+        if target.startswith("http://") or target.startswith("https://"):
             try:
-                return client.open_by_key(spreadsheet_target)
+                return client.open_by_url(target)
             except Exception:
-                return client.open(spreadsheet_target)
+                # Estrazione ID da pattern URL standard /spreadsheets/d/<ID>/
+                import re
+                match = re.search(r"/spreadsheets/d/([a-zA-Z0-9-_]+)", target)
+                if match:
+                    return client.open_by_key(match.group(1))
+                raise
+
+        # Caso 2: Chiave/ID univoco dello Sheet (stringa alfanumerica lunga senza slash o spazi)
+        elif len(target) > 25 and "/" not in target and " " not in target:
+            try:
+                return client.open_by_key(target)
+            except Exception:
+                return client.open(target)
+
+        # Caso 3: Nome/Titolo del foglio
         else:
-            return client.open(spreadsheet_target)
+            return client.open(target)
+
     except Exception:
         return None
 
@@ -191,10 +277,13 @@ def read_worksheet_as_df(sh, worksheet_name: str, default_cols: list) -> pd.Data
     try:
         worksheet = sh.worksheet(worksheet_name)
     except Exception:
-        # Se il worksheet non esiste, lo crea
+        # Se il worksheet non esiste, lo crea con le intestazioni di default
         try:
             worksheet = sh.add_worksheet(title=worksheet_name, rows=100, cols=max(15, len(default_cols) + 2))
-            worksheet.update(range_name="A1", values=[default_cols])
+            try:
+                worksheet.update([default_cols], "A1")
+            except Exception:
+                worksheet.update([default_cols])
             return pd.DataFrame(columns=default_cols)
         except Exception:
             return pd.DataFrame(columns=default_cols)
@@ -226,7 +315,10 @@ def write_df_to_worksheet(sh, worksheet_name: str, df: pd.DataFrame):
     all_values = [headers] + data_rows
     
     worksheet.clear()
-    worksheet.update(range_name="A1", values=all_values)
+    try:
+        worksheet.update(all_values, "A1")
+    except Exception:
+        worksheet.update(all_values)
 
 
 # ==============================================================================
@@ -319,7 +411,7 @@ def load_data():
                 if "voto" in df_voti.columns:
                     df_voti["voto"] = pd.to_numeric(df_voti["voto"], errors="coerce").fillna(0.0)
 
-            return df_giocatori, df_partite, df_convocazioni, df_voti, "Google Sheets"
+            return df_giocatori, df_partite, df_convocazioni, df_voti, "Google Sheets (Cloud)"
         except Exception:
             pass
 
