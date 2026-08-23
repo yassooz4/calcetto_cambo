@@ -1,7 +1,7 @@
 """
 ================================================================================
 CALCETTO STATS & MANAGER - Web Application
-Autenticazione PIN a doppio livello (Viewer 5678 / Admin 1234)
+Autenticazione PIN a doppio livello (Viewer / Admin)
 Stack: Streamlit, Pandas, Google Sheets (gspread), Fallback CSV Locale
 ================================================================================
 """
@@ -195,7 +195,7 @@ st.markdown("""
 # 2. SISTEMA DI AUTENTICAZIONE & CONTROLLO ACCESSI (PIN GATE)
 # ==============================================================================
 PIN_VIEWER = "5678"
-PIN_ADMIN = "1234"
+PIN_ADMIN = "8765"
 
 def render_pin_gate():
     """Mostra la schermata di login con verifica PIN (Sola Lettura vs Amministratore)."""
@@ -539,7 +539,7 @@ def view_gruppo_ristretto(
                 pills_html = " ".join([f"<span class='badge-circle'>⭐ {n}</span>" for n in gruppo_names])
                 st.markdown(pills_html, unsafe_allow_html=True)
             else:
-                st.info("Nessun membro attualmente assegnato alla cerchia ristretta. L'amministratore può configurarlo con PIN 1234.")
+                st.info("ℹ️ Nessun membro attualmente assegnato alla cerchia ristretta. La configurazione è riservata all'Amministratore.")
 
     if not gruppo_names:
         st.warning("⚠️ Nessun giocatore fa attualmente parte del Gruppo Ristretto. " + 
@@ -980,7 +980,7 @@ def view_convocazioni(
     st.markdown("### ⚖️ Generatore Automatico Squadre Equilibrate")
     
     if not is_admin:
-        st.info("🔒 La generazione delle formazioni equilibrate è riservata all'**Amministratore** (PIN `1234`).")
+        st.info("🔒 **Accesso Riservato:** La generazione delle formazioni equilibrate è riservata all'**Amministratore**.")
     else:
         st.caption("L'algoritmo combinatorio analizza tutte le 126 possibili suddivisioni dei 10 giocatori convocati per minimizzare lo scarto di forza ELO tra le due squadre.")
         
@@ -1369,7 +1369,7 @@ def view_add_match(
     st.markdown("<div class='sub-title'>Inserisci data, formazioni 5 vs 5 e gol individuali per i marcatori</div>", unsafe_allow_html=True)
 
     if not is_admin:
-        st.warning("🔒 **Accesso Riservato:** Solo l'Amministratore (PIN `1234`) è autorizzato a registrare nuove partite.")
+        st.warning("🔒 **Accesso Riservato:** Questa operazione è riservata all'Amministratore.")
         return
 
     lista_giocatori = sorted(df_giocatori["nome_completo"].dropna().unique().tolist()) if not df_giocatori.empty else []
@@ -1519,7 +1519,7 @@ def view_anagrafica(
     st.markdown("<div class='sub-title'>Gestione del gruppo, anagrafica e appartenenza alla Cerchia Ristretta</div>", unsafe_allow_html=True)
 
     if not is_admin:
-        st.info("👁️ **Modalità Sola Lettura:** Puoi consultare l'elenco dei giocatori iscritti. L'aggiunta o rimozione è riservata all'Amministratore (PIN `1234`).")
+        st.info("👁️ **Modalità Sola Lettura:** Puoi consultare l'elenco dei giocatori iscritti. L'aggiunta o modifica è riservata all'Amministratore.")
     else:
         # Inserimento nuovo giocatore
         with st.form("form_nuovo_giocatore", clear_on_submit=True):

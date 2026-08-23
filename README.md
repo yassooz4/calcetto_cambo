@@ -11,7 +11,7 @@ Applicazione web professionale e mobile-first, sviluppata con **Streamlit**, **P
   - Accesso completo in sola consultazione a classifiche, rating ELO, marcatori, storico partite, pagelle ed MVP.
   - I giocatori possono segnare la propria presenza per le partite convocate.
   - Funzioni di modifica, cancellazione e generazione squadre bloccate/nascoste.
-- **🛡️ PIN Amministratore (`1234`):**
+- **🛡️ PIN Amministratore (`8765`):**
   - Permessi completi: registrazione e cancellazione partite con marcatori individuali, anagrafica giocatori, apertura/chiusura convocazioni, algoritmo di bilanciamento formazioni e reset dati.
 
 ---
@@ -111,4 +111,4 @@ streamlit run app.py
 ```
 
 - **PIN Viewer (Sola Lettura):** `5678`
-- **PIN Amministratore:** `1234`
+- **PIN Amministratore:** `8765`
