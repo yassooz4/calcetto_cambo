@@ -225,6 +225,16 @@ def render_pin_gate():
                 else:
                     st.error("❌ PIN non valido.")
 
+        # Footer informativo e diagnostica rapida stato storage
+        _, _, _, _, storage_source, storage_error = storage.load_data()
+        st.markdown(f"<div style='text-align: center; font-size: 0.8rem; color: #64748b; margin-top: 1.5rem;'>Persistenza: <b>{storage_source}</b></div>", unsafe_allow_html=True)
+        if storage_error and storage_source != "Google Sheets (Cloud)":
+            with st.expander("⚠️ Diagnostica Connessione Google Sheets", expanded=False):
+                st.warning(f"**Dettaglio Fallback:**\n\n{storage_error}")
+                if st.button("🔄 Ricarica / Riprova GSheets", key="btn_retry_gsheets_pin", use_container_width=True):
+                    st.cache_data.clear()
+                    st.rerun()
+
 
 # ==============================================================================
 # 3. VISTA A: TABELLONE & CLASSIFICHE (GENERAL, ELO, MARCATORI, COPPIE, STRISCE)
@@ -1870,7 +1880,7 @@ def main():
     is_admin = (st.session_state.get("user_role") == "admin")
 
     # Caricamento Dati
-    df_giocatori, df_partite, df_convocazioni, df_voti, storage_source = storage.load_data()
+    df_giocatori, df_partite, df_convocazioni, df_voti, storage_source, storage_error = storage.load_data()
 
     # Sidebar
     with st.sidebar:
@@ -1883,6 +1893,15 @@ def main():
             st.markdown("<span class='role-badge-viewer'>👁️ SOLA LETTURA (VIEWER)</span>", unsafe_allow_html=True)
 
         st.caption(f"Persistenza: **{storage_source}**")
+
+        # Diagnostica Fallback Google Sheets
+        if storage_error and storage_source != "Google Sheets (Cloud)":
+            with st.expander("⚠️ Diagnostica Fallback GSheets", expanded=True):
+                st.warning(f"**Dettaglio Errore:**\n\n{storage_error}")
+                if st.button("🔄 Riprova Connessione GSheets", key="btn_retry_gsheets_sidebar", use_container_width=True):
+                    st.cache_data.clear()
+                    st.rerun()
+
         st.markdown("---")
 
         opzioni_menu = [

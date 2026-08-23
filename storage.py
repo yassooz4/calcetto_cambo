@@ -14,8 +14,10 @@ try:
     import gspread
     from google.oauth2.service_account import Credentials
     GSPREAD_AVAILABLE = True
-except ImportError:
+    GSPREAD_IMPORT_ERROR = None
+except Exception as e:
     GSPREAD_AVAILABLE = False
+    GSPREAD_IMPORT_ERROR = str(e)
 
 
 # ==============================================================================
@@ -115,7 +117,7 @@ VOTI_DEFAULT = [
 
 
 # ==============================================================================
-# GOOGLE SHEETS HELPER
+# GOOGLE SHEETS HELPER & DIAGNOSTICA
 # ==============================================================================
 def get_gsheets_config():
     """
@@ -127,11 +129,14 @@ def get_gsheets_config():
       - [gspread]
       - radice di st.secrets
     
-    Restituisce: (sa_info_dict, spreadsheet_target_str) o (None, None)
+    Restituisce: (sa_info_dict, spreadsheet_target_str, err_msg)
     """
+    if not GSPREAD_AVAILABLE:
+        return None, None, f"Librerie Google mancanti nell'ambiente ({GSPREAD_IMPORT_ERROR or 'gspread/google-auth non importabili'})."
+
     try:
-        if not hasattr(st, "secrets"):
-            return None, None
+        if not hasattr(st, "secrets") or not st.secrets:
+            return None, None, "st.secrets non trovato o vuoto. Inserisci le credenziali nei Secrets di Streamlit Cloud."
             
         sa_info = {}
         spreadsheet_target = None
@@ -141,21 +146,33 @@ def get_gsheets_config():
         
         # [connections.gsheets]
         if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
-            sections_to_check.append(dict(st.secrets["connections"]["gsheets"]))
+            try:
+                sections_to_check.append(dict(st.secrets["connections"]["gsheets"]))
+            except Exception:
+                pass
             
         # [gcp_service_account]
         if "gcp_service_account" in st.secrets:
-            sections_to_check.append(dict(st.secrets["gcp_service_account"]))
+            try:
+                sections_to_check.append(dict(st.secrets["gcp_service_account"]))
+            except Exception:
+                pass
             
         # [service_account]
         if "service_account" in st.secrets:
-            sections_to_check.append(dict(st.secrets["service_account"]))
+            try:
+                sections_to_check.append(dict(st.secrets["service_account"]))
+            except Exception:
+                pass
             
         # [gspread]
         if "gspread" in st.secrets:
-            sections_to_check.append(dict(st.secrets["gspread"]))
+            try:
+                sections_to_check.append(dict(st.secrets["gspread"]))
+            except Exception:
+                pass
             
-        # Radice st.secrets (solo valori scalari/stringhe)
+        # Radice st.secrets (solo valori scalari/stringhe o chiavi dirette)
         try:
             root_dict = {k: st.secrets[k] for k in st.secrets.keys() if not hasattr(st.secrets[k], "keys")}
             sections_to_check.append(root_dict)
@@ -197,79 +214,115 @@ def get_gsheets_config():
                         spreadsheet_target = val.strip()
                         break
 
+        if not sa_info:
+            return None, None, f"Nessuna credenziale Google Service Account trovata in st.secrets. Chiavi disponibili: {list(st.secrets.keys())}"
+
         # Verifica campi minimi obbligatori per autenticazione Service Account
-        if "private_key" in sa_info and "client_email" in sa_info:
-            # Imposta valori di default per campi opzionali standard
-            if "type" not in sa_info:
-                sa_info["type"] = "service_account"
-            if "token_uri" not in sa_info:
-                sa_info["token_uri"] = "https://oauth2.googleapis.com/token"
-            if "auth_uri" not in sa_info:
-                sa_info["auth_uri"] = "https://accounts.google.com/o/oauth2/auth"
-                
-            # Gestione sicura dei caratteri di escape newline (\n) nella chiave privata
-            pk = str(sa_info["private_key"]).strip()
-            if (pk.startswith('"') and pk.endswith('"')) or (pk.startswith("'") and pk.endswith("'")):
-                pk = pk[1:-1]
-            pk = pk.replace("\\n", "\n")
-            sa_info["private_key"] = pk
+        missing_fields = []
+        if "private_key" not in sa_info:
+            missing_fields.append("private_key")
+        if "client_email" not in sa_info:
+            missing_fields.append("client_email")
 
-            return sa_info, spreadsheet_target
+        if missing_fields:
+            return None, None, f"Campi obbligatori mancanti nei secrets per il Service Account: {', '.join(missing_fields)}. Campi rilevati: {list(sa_info.keys())}"
 
-    except Exception:
-        pass
+        if not spreadsheet_target:
+            return None, None, "Identificativo o URL dello Spreadsheet non trovato nei segreti. Aggiungi la chiave 'spreadsheet' o 'spreadsheet_url' con il link del foglio Google."
 
-    return None, None
+        # Imposta valori di default per campi opzionali standard
+        if "type" not in sa_info:
+            sa_info["type"] = "service_account"
+        if "token_uri" not in sa_info:
+            sa_info["token_uri"] = "https://oauth2.googleapis.com/token"
+        if "auth_uri" not in sa_info:
+            sa_info["auth_uri"] = "https://accounts.google.com/o/oauth2/auth"
+            
+        # Gestione sicura dei caratteri di escape newline (\n) nella chiave privata
+        pk = str(sa_info["private_key"]).strip()
+        if (pk.startswith('"') and pk.endswith('"')) or (pk.startswith("'") and pk.endswith("'")):
+            pk = pk[1:-1]
+        pk = pk.replace("\\n", "\n")
+        sa_info["private_key"] = pk
+
+        return sa_info, spreadsheet_target, None
+
+    except Exception as e:
+        return None, None, f"Eccezione durante la lettura dei secrets: {type(e).__name__} - {str(e)}"
 
 
 def is_gsheets_configured() -> bool:
     """Verifica se le credenziali di Google Sheets sono disponibili nei segreti."""
     if not GSPREAD_AVAILABLE:
         return False
-    sa_info, spreadsheet_target = get_gsheets_config()
+    sa_info, spreadsheet_target, _ = get_gsheets_config()
     return (sa_info is not None) and bool(spreadsheet_target)
 
 
 def get_gsheets_spreadsheet():
-    """Inizializza la connessione a Google Sheets tramite gspread e apre lo spreadsheet."""
+    """
+    Inizializza la connessione a Google Sheets tramite gspread e apre lo spreadsheet.
+    Restituisce: (spreadsheet_obj, error_message_or_None)
+    """
     if not GSPREAD_AVAILABLE:
-        return None
+        return None, f"Librerie Google non disponibili: {GSPREAD_IMPORT_ERROR}"
         
-    sa_info, spreadsheet_target = get_gsheets_config()
+    sa_info, spreadsheet_target, config_err = get_gsheets_config()
+    if config_err:
+        return None, config_err
     if not sa_info or not spreadsheet_target:
-        return None
+        return None, "Configurazione Google Sheets non disponibile nei segreti."
         
     try:
         creds = Credentials.from_service_account_info(sa_info, scopes=SCOPES)
+    except Exception as e:
+        return None, f"Errore inizializzazione Google Credentials: {type(e).__name__} - {str(e)}"
+
+    try:
         client = gspread.authorize(creds)
+    except Exception as e:
+        return None, f"Errore autorizzazione client gspread: {type(e).__name__} - {str(e)}"
         
-        target = str(spreadsheet_target).strip()
-        
+    target = str(spreadsheet_target).strip()
+    
+    try:
         # Caso 1: URL completo (inclusi parametri /edit?gid=... o simili)
         if target.startswith("http://") or target.startswith("https://"):
             try:
-                return client.open_by_url(target)
-            except Exception:
+                sh = client.open_by_url(target)
+                return sh, None
+            except Exception as url_err:
                 # Estrazione ID da pattern URL standard /spreadsheets/d/<ID>/
                 import re
                 match = re.search(r"/spreadsheets/d/([a-zA-Z0-9-_]+)", target)
                 if match:
-                    return client.open_by_key(match.group(1))
-                raise
+                    try:
+                        sh = client.open_by_key(match.group(1))
+                        return sh, None
+                    except Exception as key_err:
+                        raise Exception(f"Apertura per URL fallita ({url_err}) ed estrazione per ID ({match.group(1)}) fallita: {key_err}")
+                raise url_err
 
         # Caso 2: Chiave/ID univoco dello Sheet (stringa alfanumerica lunga senza slash o spazi)
         elif len(target) > 25 and "/" not in target and " " not in target:
             try:
-                return client.open_by_key(target)
-            except Exception:
-                return client.open(target)
+                sh = client.open_by_key(target)
+                return sh, None
+            except Exception as key_err:
+                try:
+                    sh = client.open(target)
+                    return sh, None
+                except Exception:
+                    raise key_err
 
         # Caso 3: Nome/Titolo del foglio
         else:
-            return client.open(target)
+            sh = client.open(target)
+            return sh, None
 
-    except Exception:
-        return None
+    except Exception as e:
+        client_email = sa_info.get("client_email", "non definita")
+        return None, f"Impossibile aprire il foglio Google '{target}' ({type(e).__name__}): {str(e)}. Assicurati che il foglio esista e sia stato CONDIVISO con accesso Editor all'email del Service Account: {client_email}"
 
 
 def read_worksheet_as_df(sh, worksheet_name: str, default_cols: list) -> pd.DataFrame:
@@ -359,8 +412,9 @@ def load_data():
     """
     Carica i dataframe di tutte le tabelle: giocatori, partite, convocazioni, voti.
     Usa Google Sheets tramite gspread se configurato, altrimenti usa il fallback locale CSV.
+    Restituisce: (df_giocatori, df_partite, df_convocazioni, df_voti, storage_source, storage_error)
     """
-    sh = get_gsheets_spreadsheet()
+    sh, gsheets_err = get_gsheets_spreadsheet()
     
     if sh is not None:
         try:
@@ -411,9 +465,9 @@ def load_data():
                 if "voto" in df_voti.columns:
                     df_voti["voto"] = pd.to_numeric(df_voti["voto"], errors="coerce").fillna(0.0)
 
-            return df_giocatori, df_partite, df_convocazioni, df_voti, "Google Sheets (Cloud)"
-        except Exception:
-            pass
+            return df_giocatori, df_partite, df_convocazioni, df_voti, "Google Sheets (Cloud)", None
+        except Exception as e:
+            gsheets_err = f"Errore lettura tabelle dallo Spreadsheet: {type(e).__name__} - {str(e)}"
 
     # Fallback locale CSV
     init_local_storage()
@@ -452,7 +506,7 @@ def load_data():
         if "voto" in df_voti.columns:
             df_voti["voto"] = pd.to_numeric(df_voti["voto"], errors="coerce").fillna(0.0)
 
-    return df_giocatori, df_partite, df_convocazioni, df_voti, "Locale (CSV)"
+    return df_giocatori, df_partite, df_convocazioni, df_voti, "Locale (CSV)", gsheets_err
 
 
 # ==============================================================================
@@ -466,7 +520,7 @@ def save_giocatori(df_giocatori: pd.DataFrame) -> bool:
     else:
         df_giocatori["in_gruppo_ristretto"] = df_giocatori["in_gruppo_ristretto"].astype(bool)
 
-    sh = get_gsheets_spreadsheet()
+    sh, _ = get_gsheets_spreadsheet()
     if sh is not None:
         try:
             write_df_to_worksheet(sh, "giocatori", df_giocatori)
@@ -482,7 +536,7 @@ def save_giocatori(df_giocatori: pd.DataFrame) -> bool:
 
 def toggle_giocatore_gruppo_ristretto(id_giocatore: int, stato: bool) -> bool:
     """Aggiorna lo stato di appartenenza alla cerchia ristretta per un singolo giocatore."""
-    df_giocatori, _, _, _, _ = load_data()
+    df_giocatori, *_ = load_data()
     if df_giocatori.empty or "id_giocatore" not in df_giocatori.columns:
         return False
     
@@ -499,7 +553,7 @@ def toggle_giocatore_gruppo_ristretto(id_giocatore: int, stato: bool) -> bool:
 
 def update_gruppo_ristretto_members(member_ids: list) -> bool:
     """Aggiorna in blocco l'appartenenza al gruppo ristretto in base alla lista di ID fornita."""
-    df_giocatori, _, _, _, _ = load_data()
+    df_giocatori, *_ = load_data()
     if df_giocatori.empty or "id_giocatore" not in df_giocatori.columns:
         return False
     
@@ -511,7 +565,7 @@ def update_gruppo_ristretto_members(member_ids: list) -> bool:
 
 def save_partite(df_partite: pd.DataFrame) -> bool:
     """Salva partite su Google Sheets o CSV locale con invalidazione cache."""
-    sh = get_gsheets_spreadsheet()
+    sh, _ = get_gsheets_spreadsheet()
     if sh is not None:
         try:
             write_df_to_worksheet(sh, "partite", df_partite)
@@ -527,7 +581,7 @@ def save_partite(df_partite: pd.DataFrame) -> bool:
 
 def save_convocazioni(df_convocazioni: pd.DataFrame) -> bool:
     """Salva convocazioni su Google Sheets o CSV locale con invalidazione cache."""
-    sh = get_gsheets_spreadsheet()
+    sh, _ = get_gsheets_spreadsheet()
     if sh is not None:
         try:
             write_df_to_worksheet(sh, "convocazioni", df_convocazioni)
@@ -543,7 +597,7 @@ def save_convocazioni(df_convocazioni: pd.DataFrame) -> bool:
 
 def save_voti(df_voti: pd.DataFrame) -> bool:
     """Salva votazioni/pagelle su Google Sheets o CSV locale con invalidazione cache."""
-    sh = get_gsheets_spreadsheet()
+    sh, _ = get_gsheets_spreadsheet()
     if sh is not None:
         try:
             write_df_to_worksheet(sh, "voti", df_voti)
@@ -559,7 +613,7 @@ def save_voti(df_voti: pd.DataFrame) -> bool:
 
 def get_all_voti() -> pd.DataFrame:
     """Restituisce l'intero DataFrame dei voti registrati."""
-    _, _, _, df_voti, _ = load_data()
+    *_, df_voti, _, _ = load_data()
     return df_voti
 
 
@@ -568,7 +622,7 @@ def delete_voto(id_voto: int) -> bool:
     Elimina un singolo voto identificato da id_voto e aggiorna lo storage (GSheets o CSV).
     Svuota la cache per garantire il ricalcolo immediato delle medie e dell'MVP.
     """
-    _, _, _, df_voti, _ = load_data()
+    *_, df_voti, _, _ = load_data()
     if df_voti.empty or "id_voto" not in df_voti.columns:
         return False
     
@@ -580,7 +634,7 @@ def delete_voti_partita(id_partita: int) -> bool:
     """
     Elimina tutti i voti associati a una determinata partita.
     """
-    _, _, _, df_voti, _ = load_data()
+    *_, df_voti, _, _ = load_data()
     if df_voti.empty or "id_partita" not in df_voti.columns:
         return False
         
@@ -593,7 +647,7 @@ def update_partita(id_partita: int, updated_data: dict) -> bool:
     Aggiorna i campi di una partita esistente identificata da id_partita
     (data, squadre, gol, esito, marcatori) e persiste le modifiche.
     """
-    _, df_partite, _, _, _ = load_data()
+    _, df_partite, *_ = load_data()
     if df_partite.empty or "id_partita" not in df_partite.columns:
         return False
         
