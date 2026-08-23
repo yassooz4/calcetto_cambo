@@ -8,16 +8,18 @@ Stack: Streamlit, Pandas, Google Sheets (gspread), Fallback CSV Locale
 
 import os
 import json
+from typing import Optional
 from datetime import date, datetime
 import pandas as pd
 import streamlit as st
 
-# Import dei moduli dedicati
+# Import dei moduli dedicati (Clean Architecture / DDD)
 import logic
 import storage
+import ui_components
 
 # ==============================================================================
-# 1. CONFIGURAZIONE PAGINA & CSS DARK THEME (MOBILE FIRST)
+# 1. CONFIGURAZIONE PAGINA & INIEZIONE DESIGN SYSTEM GLOBALE
 # ==============================================================================
 st.set_page_config(
     page_title="Calcetto Stats & Manager",
@@ -26,169 +28,8 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-st.markdown("""
-<style>
-    /* Stili Globali Dark & Typography */
-    .main-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 0.8rem;
-        flex-wrap: wrap;
-        gap: 10px;
-    }
-    .main-title {
-        font-size: 1.85rem;
-        font-weight: 800;
-        color: #10b981;
-        margin-bottom: 0.1rem;
-        letter-spacing: -0.5px;
-    }
-    .sub-title {
-        font-size: 0.95rem;
-        color: #94a3b8;
-        margin-bottom: 1.2rem;
-    }
-    
-    /* Ruolo Badge */
-    .role-badge-admin {
-        display: inline-block;
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: #ffffff;
-        font-weight: 700;
-        font-size: 0.8rem;
-        padding: 4px 12px;
-        border-radius: 20px;
-        box-shadow: 0 2px 5px rgba(16, 185, 129, 0.3);
-    }
-    .role-badge-viewer {
-        display: inline-block;
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        color: #ffffff;
-        font-weight: 700;
-        font-size: 0.8rem;
-        padding: 4px 12px;
-        border-radius: 20px;
-        box-shadow: 0 2px 5px rgba(59, 130, 246, 0.3);
-    }
-    .badge-circle {
-        display: inline-block;
-        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        color: #0f172a;
-        font-weight: 700;
-        font-size: 0.75rem;
-        padding: 2px 8px;
-        border-radius: 12px;
-        box-shadow: 0 1px 4px rgba(245, 158, 11, 0.4);
-    }
-
-    /* Cards Personalizzate */
-    .glass-card {
-        background-color: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 12px;
-        padding: 1.2rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.3);
-    }
-    .match-card {
-        background-color: #1e293b;
-        border-radius: 12px;
-        padding: 1rem 1.2rem;
-        margin-bottom: 1.1rem;
-        border-left: 5px solid #10b981;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.25);
-    }
-    .match-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.6rem;
-        font-weight: 600;
-        font-size: 0.9rem;
-        color: #94a3b8;
-    }
-    .match-score {
-        font-size: 1.45rem;
-        font-weight: 800;
-        text-align: center;
-        margin: 0.6rem 0;
-        color: #f8fafc;
-    }
-    .team-box {
-        font-size: 0.9rem;
-        line-height: 1.45;
-        color: #cbd5e1;
-    }
-    .team-title-a {
-        font-weight: 700;
-        color: #38bdf8;
-    }
-    .team-title-b {
-        font-weight: 700;
-        color: #f43f5e;
-    }
-
-    /* MVP Card & Worst Card */
-    .card-mvp {
-        background: linear-gradient(135deg, #1e293b 0%, #1e1b4b 100%);
-        border: 2px solid #fbbf24;
-        border-radius: 12px;
-        padding: 1.2rem;
-        text-align: center;
-        box-shadow: 0 4px 15px rgba(251, 191, 36, 0.2);
-    }
-    .card-worst {
-        background: linear-gradient(135deg, #1e293b 0%, #450a0a 100%);
-        border: 1px solid #ef4444;
-        border-radius: 12px;
-        padding: 1.2rem;
-        text-align: center;
-    }
-
-    /* Badge Esito & Forma */
-    .badge-v {
-        display: inline-block;
-        background-color: #10b981;
-        color: white;
-        font-weight: bold;
-        border-radius: 6px;
-        padding: 2px 8px;
-        margin: 2px;
-        font-size: 0.85rem;
-    }
-    .badge-p {
-        display: inline-block;
-        background-color: #eab308;
-        color: #0f172a;
-        font-weight: bold;
-        border-radius: 6px;
-        padding: 2px 8px;
-        margin: 2px;
-        font-size: 0.85rem;
-    }
-    .badge-s {
-        display: inline-block;
-        background-color: #ef4444;
-        color: white;
-        font-weight: bold;
-        border-radius: 6px;
-        padding: 2px 8px;
-        margin: 2px;
-        font-size: 0.85rem;
-    }
-
-    /* Mobile Responsive Tweaks */
-    @media (max-width: 768px) {
-        .main-title {
-            font-size: 1.5rem;
-        }
-        .match-score {
-            font-size: 1.2rem;
-        }
-    }
-</style>
-""", unsafe_allow_html=True)
+# Iniezione Dark Modern Stadium & Glassmorphism Theme
+ui_components.inject_custom_theme()
 
 
 # ==============================================================================
@@ -438,67 +279,50 @@ def view_dashboard(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame, df_voti
                 if not found:
                     st.info(f"Nessuno scontro diretto registrato tra **{p1_sel}** e **{p2_sel}**.")
 
-    # TAB 6: SCHEDA SINGOLO GIOCATORE
+    # TAB 6: SCHEDA SINGOLO GIOCATORE (FUT CARD & RADAR CHART)
     with tab_spotlight:
-        st.markdown("### 🔍 Scheda Singolo Giocatore")
+        st.markdown("### 🎴 Scheda Giocatore & FUT Ultimate Card")
+        st.caption("Visualizzazione stile EA Sports FC con Overall Rating (OVR), 6 attributi chiave e confronto radar.")
         lista_giocatori = sorted(df_giocatori["nome_completo"].dropna().unique().tolist()) if not df_giocatori.empty else []
         
         if not lista_giocatori:
             st.info("Nessun giocatore registrato.")
         else:
-            selected_player = st.selectbox("Seleziona un giocatore per i dettagli:", options=lista_giocatori, key="spotlight_player_sel")
+            selected_player = st.selectbox("Seleziona un giocatore per visualizzare la Scheda FUT:", options=lista_giocatori, key="spotlight_player_sel")
             
             if selected_player:
-                p_elo = elo_ratings.get(selected_player, 1500.0)
-                
-                # Forma e presenze
-                pres_a = 0
-                pres_b = 0
-                forma = []
-                gol_segnati = 0
+                fifa_stats = logic.calculate_player_fifa_stats(
+                    selected_player, df_giocatori, df_partite, df_voti, elo_ratings
+                )
+                radar_data = logic.calculate_radar_metrics(
+                    selected_player, df_giocatori, df_partite, df_voti, elo_ratings
+                )
+                is_in_cerchia = (selected_player in gruppo_set)
 
-                if not df_partite.empty:
-                    df_sorted_p = df_partite.sort_values(by=["data", "id_partita"], ascending=[False, False])
-                    for _, match in df_sorted_p.iterrows():
-                        raw_a = [p.strip() for p in str(match.get("squadra_a_giocatori", "")).split(",") if p.strip()]
-                        raw_b = [p.strip() for p in str(match.get("squadra_b_giocatori", "")).split(",") if p.strip()]
-                        gol_a = int(match.get("gol_squadra_a", 0))
-                        gol_b = int(match.get("gol_squadra_b", 0))
+                col_fut, col_radar = st.columns([1, 1.2])
 
-                        # Gol
-                        m_dict = logic.parse_marcatori(match.get("marcatori", ""))
-                        if selected_player in m_dict:
-                            gol_segnati += m_dict[selected_player]
+                with col_fut:
+                    ui_components.render_fut_card(selected_player, fifa_stats, is_cerchia=is_in_cerchia)
 
-                        if selected_player in raw_a:
-                            pres_a += 1
-                            forma.append("V" if gol_a > gol_b else ("P" if gol_a == gol_b else "S"))
-                        elif selected_player in raw_b:
-                            pres_b += 1
-                            forma.append("V" if gol_b > gol_a else ("P" if gol_b == gol_a else "S"))
+                with col_radar:
+                    st.markdown("#### 📊 Radar Bilanciamento Abilità (vs Media)")
+                    ui_components.render_player_radar_chart(selected_player, radar_data)
 
-                tot_pres = pres_a + pres_b
-
-                # Layout Scheda
-                c_sp1, c_sp2, c_sp3 = st.columns(3)
-                c_sp1.metric("Rating ELO", f"{p_elo:.1f}")
-                c_sp2.metric("Presenze Totali", f"{tot_pres}")
-                c_sp3.metric("Gol Segnati", f"{gol_segnati}")
-
-                st.markdown("#### 🏃 Forma Recente (Ultime 5 partite)")
-                if forma:
-                    badges_html = ""
-                    for res in forma[:5]:
-                        if res == "V":
-                            badges_html += "<span class='badge-v'>V</span>"
-                        elif res == "P":
-                            badges_html += "<span class='badge-p'>P</span>"
-                        else:
-                            badges_html += "<span class='badge-s'>S</span>"
-                    st.markdown(badges_html, unsafe_allow_html=True)
-                    st.caption("Dalla più recente (sinistra) alla meno recente (destra).")
-                else:
-                    st.write("Nessuna partita disputata finora.")
+                    st.markdown("#### 🏃 Forma Recente (Ultime sfide)")
+                    forma = fifa_stats.get("forma", [])
+                    if forma:
+                        badges_html = ""
+                        for res in forma[:5]:
+                            if res == "V":
+                                badges_html += "<span class='badge-v'>V</span>"
+                            elif res == "P":
+                                badges_html += "<span class='badge-p'>P</span>"
+                            else:
+                                badges_html += "<span class='badge-s'>S</span>"
+                        st.markdown(badges_html, unsafe_allow_html=True)
+                        st.caption("Dalla più recente (sinistra) alla meno recente (destra).")
+                    else:
+                        st.caption("Nessuna partita disputata finora.")
 
 
 # ==============================================================================
@@ -768,61 +592,44 @@ def view_gruppo_ristretto(
                 if not found_g:
                     st.info(f"Nessuno scontro diretto registrato tra **{p1_g}** e **{p2_g}**.")
 
-    # TAB 6: SCHEDA MEMBRO
+    # TAB 6: SCHEDA MEMBRO (FUT CARD & RADAR CERCHIA)
     with tab_spot_g:
-        st.markdown("### 🔍 Scheda Membro Cerchia")
+        st.markdown("### 🎴 Scheda Membro Cerchia & FUT Ultimate Card")
+        st.caption("Analisi prestazionale del membro della cerchia ristretta con Overall Rating, 6 attributi FIFA e radar di confronto.")
         selected_member = st.selectbox("Seleziona un membro del gruppo:", options=gruppo_names, key="spotlight_member_sel")
 
         if selected_member:
-            m_elo = elo_ratings_c.get(selected_member, 1500.0)
-            
-            # Calcolo presenze, forma e gol per questo membro
-            pres_a_m = 0
-            pres_b_m = 0
-            forma_m = []
-            gol_m = 0
+            fifa_stats_g = logic.calculate_player_fifa_stats(
+                selected_member, df_giocatori, df_partite_calc, df_voti, elo_ratings_c, giocatori_filtrati=gruppo_names
+            )
+            radar_data_g = logic.calculate_radar_metrics(
+                selected_member, df_giocatori, df_partite_calc, df_voti, elo_ratings_c, giocatori_filtrati=gruppo_names
+            )
 
-            if not df_partite_calc.empty:
-                df_sorted_m = df_partite_calc.sort_values(by=["data", "id_partita"], ascending=[False, False])
-                for _, match in df_sorted_m.iterrows():
-                    raw_a = [p.strip() for p in str(match.get("squadra_a_giocatori", "")).split(",") if p.strip()]
-                    raw_b = [p.strip() for p in str(match.get("squadra_b_giocatori", "")).split(",") if p.strip()]
-                    gol_a = int(match.get("gol_squadra_a", 0))
-                    gol_b = int(match.get("gol_squadra_b", 0))
+            col_fut_g, col_radar_g = st.columns([1, 1.2])
 
-                    # Gol
-                    m_dict = logic.parse_marcatori(match.get("marcatori", ""))
-                    if selected_member in m_dict:
-                        gol_m += m_dict[selected_member]
+            with col_fut_g:
+                ui_components.render_fut_card(selected_member, fifa_stats_g, is_cerchia=True)
 
-                    if selected_member in raw_a:
-                        pres_a_m += 1
-                        forma_m.append("V" if gol_a > gol_b else ("P" if gol_a == gol_b else "S"))
-                    elif selected_member in raw_b:
-                        pres_b_m += 1
-                        forma_m.append("V" if gol_b > gol_a else ("P" if gol_b == gol_a else "S"))
+            with col_radar_g:
+                st.markdown("#### 📊 Radar Rendimento (vs Media Cerchia)")
+                ui_components.render_player_radar_chart(selected_member, radar_data_g)
 
-            tot_pres_m = pres_a_m + pres_b_m
-
-            cm1, cm2, cm3 = st.columns(3)
-            cm1.metric("Rating ELO", f"{m_elo:.1f}")
-            cm2.metric("Presenze Valide", f"{tot_pres_m}")
-            cm3.metric("Gol Segnati", f"{gol_m}")
-
-            st.markdown("#### 🏃 Forma Recente (Ultime 5 partite)")
-            if forma_m:
-                b_html = ""
-                for res in forma_m[:5]:
-                    if res == "V":
-                        b_html += "<span class='badge-v'>V</span>"
-                    elif res == "P":
-                        b_html += "<span class='badge-p'>P</span>"
-                    else:
-                        b_html += "<span class='badge-s'>S</span>"
-                st.markdown(b_html, unsafe_allow_html=True)
-                st.caption("Dalla più recente (sinistra) alla meno recente (destra).")
-            else:
-                st.write("Nessuna partita disputata per questo membro.")
+                st.markdown("#### 🏃 Forma Recente (Partite Cerchia)")
+                forma_g = fifa_stats_g.get("forma", [])
+                if forma_g:
+                    b_html = ""
+                    for res in forma_g[:5]:
+                        if res == "V":
+                            b_html += "<span class='badge-v'>V</span>"
+                        elif res == "P":
+                            b_html += "<span class='badge-p'>P</span>"
+                        else:
+                            b_html += "<span class='badge-s'>S</span>"
+                    st.markdown(b_html, unsafe_allow_html=True)
+                    st.caption("Dalla più recente (sinistra) alla meno recente (destra).")
+                else:
+                    st.caption("Nessuna partita disputata finora per questo membro.")
 
 
 # ==============================================================================
@@ -1020,14 +827,18 @@ def view_convocazioni(
 
         if "last_balanced" in st.session_state and st.session_state["last_balanced"]:
             res = st.session_state["last_balanced"]
+            elo_ratings, _ = logic.calculate_elo_ratings(df_giocatori, df_partite)
             
-            st.markdown("#### 📋 Risultato Bilanciamento Ottimale")
+            st.markdown("#### 📋 Schieramento Tattico 2D & Bilanciamento Ottimale")
+            
+            # Rendering Campo da Calcio 2D
+            ui_components.render_tactical_pitch(res["team_a"], res["team_b"], elo_ratings)
             
             b_col1, b_col2 = st.columns(2)
             with b_col1:
                 st.markdown(f"""
-                <div class="glass-card" style="border-top: 4px solid #38bdf8;">
-                    <h4 style="color: #38bdf8; margin-top: 0;">🟦 Squadra A</h4>
+                <div class="glass-card" style="border-top: 4px solid #FFD700;">
+                    <h4 style="color: #FFD700; margin-top: 0;">🟨 Squadra A</h4>
                     <p><b>ELO Medio:</b> {res['elo_avg_a']} | <b>Totale:</b> {res['elo_sum_a']}</p>
                     <ul>
                         {''.join([f"<li><b>{p}</b> (ELO: {res['ratings_detail_a'].get(p, 1500)})</li>" for p in res['team_a']])}
@@ -1037,8 +848,8 @@ def view_convocazioni(
 
             with b_col2:
                 st.markdown(f"""
-                <div class="glass-card" style="border-top: 4px solid #f43f5e;">
-                    <h4 style="color: #f43f5e; margin-top: 0;">🟥 Squadra B</h4>
+                <div class="glass-card" style="border-top: 4px solid #00E5FF;">
+                    <h4 style="color: #00E5FF; margin-top: 0;">🟦 Squadra B</h4>
                     <p><b>ELO Medio:</b> {res['elo_avg_b']} | <b>Totale:</b> {res['elo_sum_b']}</p>
                     <ul>
                         {''.join([f"<li><b>{p}</b> (ELO: {res['ratings_detail_b'].get(p, 1500)})</li>" for p in res['team_b']])}
@@ -1642,10 +1453,11 @@ def view_anagrafica(
 def view_match_history(
     df_giocatori: pd.DataFrame,
     df_partite: pd.DataFrame, 
-    is_admin: bool
+    is_admin: bool,
+    df_voti: Optional[pd.DataFrame] = None
 ):
     st.markdown("<div class='main-title'>📜 Storico Partite</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-title'>Archivio di tutte le sfide disputate con marcatori e formazioni</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-title'>Archivio in stile Champions League di tutte le sfide disputate con marcatori, formazioni e MVP</div>", unsafe_allow_html=True)
 
     if df_partite.empty:
         st.info("Nessuna partita presente nello storico.")
@@ -1695,7 +1507,7 @@ def view_match_history(
 
                 col_ed_a, col_ed_b = st.columns(2)
                 with col_ed_a:
-                    st.markdown("##### 🟦 Squadra A")
+                    st.markdown("##### 🟨 Squadra A")
                     # Assicurati che i default siano nella lista opzioni
                     valid_sq_a_defs = [p for p in sq_a_curr if p in lista_tutti_giocatori][:5]
                     sq_a_mod = st.multiselect(
@@ -1706,10 +1518,10 @@ def view_match_history(
                         key=f"edit_sq_a_{id_partita_da_modificare}"
                     )
                     st.caption(f"Selezionati: {len(sq_a_mod)}/5")
-                    gol_a_mod = st.number_input("Gol Totali Squadra A 🟦", min_value=0, max_value=50, value=gol_a_curr, step=1, key=f"edit_gol_a_{id_partita_da_modificare}")
+                    gol_a_mod = st.number_input("Gol Totali Squadra A 🟨", min_value=0, max_value=50, value=gol_a_curr, step=1, key=f"edit_gol_a_{id_partita_da_modificare}")
 
                 with col_ed_b:
-                    st.markdown("##### 🟥 Squadra B")
+                    st.markdown("##### 🟦 Squadra B")
                     valid_sq_b_defs = [p for p in sq_b_curr if p in lista_tutti_giocatori][:5]
                     sq_b_mod = st.multiselect(
                         "5 Giocatori Squadra B:",
@@ -1719,7 +1531,7 @@ def view_match_history(
                         key=f"edit_sq_b_{id_partita_da_modificare}"
                     )
                     st.caption(f"Selezionati: {len(sq_b_mod)}/5")
-                    gol_b_mod = st.number_input("Gol Totali Squadra B 🟥", min_value=0, max_value=50, value=gol_b_curr, step=1, key=f"edit_gol_b_{id_partita_da_modificare}")
+                    gol_b_mod = st.number_input("Gol Totali Squadra B 🟦", min_value=0, max_value=50, value=gol_b_curr, step=1, key=f"edit_gol_b_{id_partita_da_modificare}")
 
                 st.markdown("##### 🎯 Assegnazione Gol Individuali Marcatori")
                 marcatori_mod_dict = {}
@@ -1748,19 +1560,16 @@ def view_match_history(
                     
                     dupls = set(sq_a_mod).intersection(set(sq_b_mod))
                     if dupls:
-                        errs.append(f"I seguenti giocatori sono in entrambe le squadre: {', '.join(dupls)}.")
+                        errs.append(f"Giocatori assegnati a entrambe le squadre: {', '.join(dupls)}")
 
-                    if len(sq_a_mod) == 5 and len(sq_b_mod) == 5:
-                        sum_a = sum(marcatori_mod_dict.get(p, 0) for p in sq_a_mod)
-                        sum_b = sum(marcatori_mod_dict.get(p, 0) for p in sq_b_mod)
-                        if sum_a != gol_a_mod:
-                            errs.append(f"La somma dei gol individuali di Squadra A ({sum_a}) non coincide con i Gol Totali ({gol_a_mod}).")
-                        if sum_b != gol_b_mod:
-                            errs.append(f"La somma dei gol individuali di Squadra B ({sum_b}) non coincide con i Gol Totali ({gol_b_mod}).")
+                    sum_gol_indiv = sum(marcatori_mod_dict.values())
+                    tot_gol_dichiarati = gol_a_mod + gol_b_mod
+                    if sum_gol_indiv > tot_gol_dichiarati:
+                        errs.append(f"La somma dei gol individuali ({sum_gol_indiv}) supera il totale gol del match ({tot_gol_dichiarati}).")
 
                     if errs:
-                        for err in errs:
-                            st.error(f"❌ {err}")
+                        for e in errs:
+                            st.error(f"❌ {e}")
                     else:
                         if gol_a_mod > gol_b_mod:
                             esito_mod = "Vittoria Squadra A"
@@ -1769,8 +1578,9 @@ def view_match_history(
                         else:
                             esito_mod = "Pareggio"
 
-                        marcatori_json_mod = logic.serialize_marcatori(marcatori_mod_dict)
-                        
+                        marcatori_clean = {k: int(v) for k, v in marcatori_mod_dict.items() if int(v) > 0}
+                        marcatori_json_mod = logic.serialize_marcatori(marcatori_clean)
+
                         update_payload = {
                             "data": data_mod.strftime("%Y-%m-%d"),
                             "squadra_a_giocatori": ", ".join(sq_a_mod),
@@ -1808,58 +1618,23 @@ def view_match_history(
 
         st.markdown("---")
 
-    # Ordinamento cronologico inverso
+    # Ordinamento cronologico inverso e rendering Champions League Match Cards
     df_sorted = df_partite.sort_values(by=["data", "id_partita"], ascending=[False, False]).reset_index(drop=True)
 
     for idx, match in df_sorted.iterrows():
         id_p = match.get("id_partita", idx + 1)
-        data_str = match.get("data", "N/D")
-        gol_a = match.get("gol_squadra_a", 0)
-        gol_b = match.get("gol_squadra_b", 0)
-        esito = match.get("esito", "")
-        sq_a = match.get("squadra_a_giocatori", "")
-        sq_b = match.get("squadra_b_giocatori", "")
+        
+        # Recupero MVP per il match
+        mvp_name = None
+        mvp_avg = None
+        if df_voti is not None and not df_voti.empty:
+            match_ratings = logic.calculate_match_ratings(df_voti, id_p)
+            if match_ratings.get("has_votes") and match_ratings.get("mvp"):
+                mvp_name = match_ratings["mvp"].get("giocatore")
+                mvp_avg = match_ratings["mvp"].get("media")
 
-        # Marcatori
-        marcatori_dict = logic.parse_marcatori(match.get("marcatori", ""))
-        marcatori_str = ", ".join([f"{p} ({g})" for p, g in marcatori_dict.items()]) if marcatori_dict else "Nessun marcatore specificato"
-
-        if "Squadra A" in esito:
-            badge_color = "#38bdf8"
-        elif "Squadra B" in esito:
-            badge_color = "#f43f5e"
-        else:
-            badge_color = "#eab308"
-
-        card_html = f"""
-        <div class="match-card">
-            <div class="match-header">
-                <span>🗓️ Partita #{id_p} del <b>{data_str}</b></span>
-                <span style="background-color: {badge_color}; color: #0f172a; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">
-                    {esito}
-                </span>
-            </div>
-            <div class="match-score">
-                <span style="color: #38bdf8;">Squadra A</span> &nbsp;
-                <span style="background: #0f172a; padding: 4px 14px; border-radius: 8px; border: 1px solid #334155;">{gol_a} - {gol_b}</span>
-                &nbsp; <span style="color: #f43f5e;">Squadra B</span>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-                <div class="team-box">
-                    <span class="team-title-a">🟦 Formazione A:</span><br>
-                    {sq_a}
-                </div>
-                <div class="team-box">
-                    <span class="team-title-b">🟥 Formazione B:</span><br>
-                    {sq_b}
-                </div>
-            </div>
-            <div style="margin-top: 8px; font-size: 0.85rem; color: #94a3b8; border-top: 1px solid #334155; padding-top: 6px;">
-                ⚽ <b>Marcatori:</b> {marcatori_str}
-            </div>
-        </div>
-        """
-        st.markdown(card_html, unsafe_allow_html=True)
+        # Rendering Champions League Match Card
+        ui_components.render_champions_scoreboard(match, mvp_name=mvp_name, mvp_avg=mvp_avg)
 
 
 # ==============================================================================
@@ -1968,7 +1743,7 @@ def main():
     elif scelta_menu == "👤 Anagrafica Giocatori":
         view_anagrafica(df_giocatori, df_partite, is_admin)
     elif scelta_menu == "📜 Storico Partite":
-        view_match_history(df_giocatori, df_partite, is_admin)
+        view_match_history(df_giocatori, df_partite, is_admin, df_voti=df_voti)
 
 
 if __name__ == "__main__":
