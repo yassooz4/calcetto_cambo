@@ -319,7 +319,7 @@ def view_dashboard(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame, df_voti
                                 badges_html += "<span class='badge-p'>P</span>"
                             else:
                                 badges_html += "<span class='badge-s'>S</span>"
-                        st.markdown(badges_html, unsafe_allow_html=True)
+                        ui_components.render_html(badges_html)
                         st.caption("Dalla più recente (sinistra) alla meno recente (destra).")
                     else:
                         st.caption("Nessuna partita disputata finora.")
@@ -626,7 +626,7 @@ def view_gruppo_ristretto(
                             b_html += "<span class='badge-p'>P</span>"
                         else:
                             b_html += "<span class='badge-s'>S</span>"
-                    st.markdown(b_html, unsafe_allow_html=True)
+                    ui_components.render_html(b_html)
                     st.caption("Dalla più recente (sinistra) alla meno recente (destra).")
                 else:
                     st.caption("Nessuna partita disputata finora per questo membro.")
@@ -698,7 +698,7 @@ def view_convocazioni(
     percentuale = min(1.0, num_presenti / target)
 
     # Box Riepilogo Sessione
-    st.markdown(f"""
+    ui_components.render_html(f"""
     <div class="glass-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <h3 style="margin: 0; color: #38bdf8;">🗓️ Prossima Partita: {data_str} ore {ora_str}</h3>
@@ -708,7 +708,7 @@ def view_convocazioni(
         </div>
         <p style="margin: 0; color: #94a3b8;">📍 <b>Luogo:</b> {luogo_str}</p>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
     # Contatore Dinamico Target 10
     st.markdown(f"#### 🎯 Convocati Confermati: **{num_presenti} / {target}**")
@@ -836,7 +836,7 @@ def view_convocazioni(
             
             b_col1, b_col2 = st.columns(2)
             with b_col1:
-                st.markdown(f"""
+                ui_components.render_html(f"""
                 <div class="glass-card" style="border-top: 4px solid #FFD700;">
                     <h4 style="color: #FFD700; margin-top: 0;">🟨 Squadra A</h4>
                     <p><b>ELO Medio:</b> {res['elo_avg_a']} | <b>Totale:</b> {res['elo_sum_a']}</p>
@@ -844,10 +844,10 @@ def view_convocazioni(
                         {''.join([f"<li><b>{p}</b> (ELO: {res['ratings_detail_a'].get(p, 1500)})</li>" for p in res['team_a']])}
                     </ul>
                 </div>
-                """, unsafe_allow_html=True)
+                """)
 
             with b_col2:
-                st.markdown(f"""
+                ui_components.render_html(f"""
                 <div class="glass-card" style="border-top: 4px solid #00E5FF;">
                     <h4 style="color: #00E5FF; margin-top: 0;">🟦 Squadra B</h4>
                     <p><b>ELO Medio:</b> {res['elo_avg_b']} | <b>Totale:</b> {res['elo_sum_b']}</p>
@@ -855,7 +855,7 @@ def view_convocazioni(
                         {''.join([f"<li><b>{p}</b> (ELO: {res['ratings_detail_b'].get(p, 1500)})</li>" for p in res['team_b']])}
                     </ul>
                 </div>
-                """, unsafe_allow_html=True)
+                """)
 
             st.info(f"⚖️ **Differenza ELO Totale:** {res['diff_elo']} punti (Diff. media per giocatore: {res['diff_avg_elo']} pt)")
 
@@ -947,7 +947,7 @@ def view_pagelle(
             c_mvp, c_worst = st.columns(2)
             with c_mvp:
                 if eval_res["mvp"]:
-                    st.markdown(f"""
+                    ui_components.render_html(f"""
                     <div class="card-mvp">
                         <div style="font-size: 2.2rem; margin-bottom: 5px;">👑</div>
                         <h3 style="color: #fbbf24; margin: 0;">MVP DELLA PARTITA</h3>
@@ -955,11 +955,11 @@ def view_pagelle(
                         <p style="font-size: 1.15rem; color: #38bdf8; margin: 0;"><b>Media Voto: {eval_res['mvp']['media']} / 10</b></p>
                         <span style="font-size: 0.85rem; color: #94a3b8;">({eval_res['mvp']['voti_ricevuti']} valutazioni ricevute)</span>
                     </div>
-                    """, unsafe_allow_html=True)
+                    """)
 
             with c_worst:
                 if eval_res["worst"] and eval_res["worst"]["giocatore"] != eval_res["mvp"]["giocatore"]:
-                    st.markdown(f"""
+                    ui_components.render_html(f"""
                     <div class="card-worst">
                         <div style="font-size: 2.2rem; margin-bottom: 5px;">🧊</div>
                         <h3 style="color: #ef4444; margin: 0;">MENZIONE PEGGIORE</h3>
@@ -967,7 +967,7 @@ def view_pagelle(
                         <p style="font-size: 1.15rem; color: #f87171; margin: 0;"><b>Media Voto: {eval_res['worst']['media']} / 10</b></p>
                         <span style="font-size: 0.85rem; color: #94a3b8;">({eval_res['worst']['voti_ricevuti']} valutazioni ricevute)</span>
                     </div>
-                    """, unsafe_allow_html=True)
+                    """)
 
             # Tabella Pagelle Medie
             st.markdown("#### 📊 Medie Voto Giocatori")
@@ -988,12 +988,12 @@ def view_pagelle(
             if eval_res["comments"]:
                 st.markdown("#### 💬 Commenti e Pagelle della Community")
                 for c in eval_res["comments"]:
-                    st.markdown(f"""
+                    ui_components.render_html(f"""
                     <div class="glass-card" style="padding: 10px 14px; margin-bottom: 8px;">
                         <b>{c['votante']}</b> su <b>{c['giocatore']}</b> (Voto: <span style="color: #fbbf24; font-weight: bold;">{c['voto']}</span>):<br>
                         <span style="color: #cbd5e1; font-style: italic;">"{c['commento']}"</span>
                     </div>
-                    """, unsafe_allow_html=True)
+                    """)
         else:
             st.info("Nessuna votazione ancora inserita per questa partita. Compila le pagelle qui sotto per eleggere l'MVP!")
 

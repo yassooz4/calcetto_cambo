@@ -7,10 +7,27 @@ Componenti: Theme Injection, FUT Card, Plotly Radar Chart, 2D Pitch, Scoreboard
 """
 
 import json
+import textwrap
 from typing import Dict, List, Any, Optional, Tuple
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
+
+
+def render_html(html_str: str) -> None:
+    """
+    Renderizza HTML in modo sicuro e pulito:
+    1. Rimuove automaticamente tutti gli spazi/indentazioni di testa (textwrap.dedent)
+       per impedire al parser Markdown di scambiare il codice per un blocco <pre><code>.
+    2. Utilizza st.html() nativo di Streamlit (se disponibile) che esegue il rendering
+       diretto senza passare dal compilatore markdown.
+    3. Fallback su st.markdown(clean_html, unsafe_allow_html=True) se st.html non è presente.
+    """
+    clean_html = textwrap.dedent(html_str).strip()
+    if hasattr(st, "html"):
+        st.html(clean_html)
+    else:
+        st.markdown(clean_html, unsafe_allow_html=True)
 
 
 # ==============================================================================
@@ -22,7 +39,7 @@ def inject_custom_theme() -> None:
     Importa font Google (Outfit, Inter, Teko) e applica la palette scura profonda
     con accenti neon (Smeraldo, Oro MVP, Cyan ELO, Rosso Fuoco).
     """
-    st.markdown("""
+    theme_css = """
     <style>
         /* Import Font Google */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&family=Teko:wght@600;700&display=swap');
@@ -254,7 +271,8 @@ def inject_custom_theme() -> None:
             background: rgba(0, 230, 118, 0.06) !important;
         }
     </style>
-    """, unsafe_allow_html=True)
+    """
+    render_html(theme_css)
 
 
 # ==============================================================================
@@ -273,7 +291,6 @@ def render_fut_card(
     ovr = fifa_stats.get("ovr", 75)
     elo_val = fifa_stats.get("elo", 1500.0)
     attrs = fifa_stats.get("attributes", {})
-    forma = fifa_stats.get("forma", [])
     pg = fifa_stats.get("pg", 0)
     gol = fifa_stats.get("gol_totali", 0)
     mvp = fifa_stats.get("titoli_mvp", 0)
@@ -436,7 +453,7 @@ def render_fut_card(
         </div>
     </div>
     """
-    st.markdown(card_html, unsafe_allow_html=True)
+    render_html(card_html)
 
 
 # ==============================================================================
@@ -547,7 +564,6 @@ def render_tactical_pitch(
 
     # Posizioni tattiche (x%, y% sul campo) per formazioni 1-2-1
     # Campo orizzontale 100% larghezza x 100% altezza
-    # Squadra A (sinistra -> attacca a destra)
     pos_a = [
         {"x": 10, "y": 50, "role": "POR"},
         {"x": 24, "y": 26, "role": "DIF"},
@@ -556,7 +572,6 @@ def render_tactical_pitch(
         {"x": 45, "y": 50, "role": "ATT"}
     ]
 
-    # Squadra B (destra -> attacca a sinistra)
     pos_b = [
         {"x": 90, "y": 50, "role": "POR"},
         {"x": 76, "y": 26, "role": "DIF"},
@@ -798,7 +813,7 @@ def render_tactical_pitch(
         </div>
     </div>
     """
-    st.markdown(pitch_html, unsafe_allow_html=True)
+    render_html(pitch_html)
 
 
 # ==============================================================================
@@ -986,4 +1001,4 @@ def render_champions_scoreboard(
         </div>
     </div>
     """
-    st.markdown(card_html, unsafe_allow_html=True)
+    render_html(card_html)
