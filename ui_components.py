@@ -642,7 +642,7 @@ def inject_custom_theme() -> None:
             box-sizing: border-box !important;
         }
 
-        /* 2. Styling dei 4 Quadratini OTP Identici al Bottone Sblocca Accesso */
+        /* 2. Styling dei 4 Quadratini OTP Identici al Bottone Sblocca Accesso (Single-Target Pattern) */
         [data-testid="stForm"] [data-testid="stHorizontalBlock"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) [data-testid="stHorizontalBlock"] {
             max-width: 280px !important;
@@ -673,19 +673,16 @@ def inject_custom_theme() -> None:
             display: none !important;
         }
 
-        /* Bordo Prismatico Iridescente IDENTICO a Sblocca Accesso */
-        [data-testid="stForm"] [data-testid="stHorizontalBlock"] [data-baseweb="input"],
-        [data-testid="stForm"] [data-testid="stHorizontalBlock"] [data-baseweb="base-input"],
-        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInputRootElement"] > div,
-        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInput"] > div,
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"],
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="base-input"] {
+        /* 1. CONTAINER ESTERNO: Unico padrone del bordo iridescente e del vetro scuro */
+        [data-testid="stForm"] div[data-testid="column"] div[data-baseweb="input"],
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"] {
             border: 1.5px solid transparent !important;
             background-image: 
-                linear-gradient(rgba(13, 17, 26, 0.9), rgba(13, 17, 26, 0.9)), 
+                linear-gradient(rgba(13, 17, 26, 0.92), rgba(13, 17, 26, 0.92)), 
                 conic-gradient(from 180deg at 50% 50%, #00F0FF 0deg, #3B82F6 70deg, #FFFFFF 140deg, #FFB800 200deg, #FF3B30 270deg, #00F0FF 360deg) !important;
             background-origin: border-box !important;
             background-clip: padding-box, border-box !important;
+            background-color: transparent !important;
             border-radius: 14px !important;
             height: 60px !important;
             min-height: 60px !important;
@@ -701,9 +698,7 @@ def inject_custom_theme() -> None:
         }
 
         /* Glow al Focus / Digitazione */
-        [data-testid="stForm"] [data-testid="stHorizontalBlock"] [data-baseweb="input"]:focus-within,
-        [data-testid="stForm"] [data-testid="stHorizontalBlock"] [data-baseweb="base-input"]:focus-within,
-        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInputRootElement"] > div:focus-within,
+        [data-testid="stForm"] div[data-testid="column"] div[data-baseweb="input"]:focus-within,
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"]:focus-within {
             box-shadow: 
                 0 10px 25px -4px rgba(0, 0, 0, 0.8),
@@ -712,23 +707,39 @@ def inject_custom_theme() -> None:
             transform: translateY(-2px);
         }
 
-        /* Testo Cifra / Pallino Centrato e Grande */
-        [data-testid="stForm"] [data-testid="stHorizontalBlock"] input,
+        /* 2. RESET TOTALE FIGLI INTERNI: Nessuno strato interno copre il gradiente o impone sfondi */
+        [data-testid="stForm"] div[data-testid="column"] div[data-baseweb="base-input"],
+        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInputRootElement"],
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="base-input"],
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInputRootElement"] {
+            background: transparent !important;
+            background-color: transparent !important;
+            background-image: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            height: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        /* 3. INPUT NATIVO: Trasparenza assoluta, dimensione calibrata 1.45rem e centratura perfetta */
         [data-testid="stForm"] div[data-testid="column"] input,
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"] input,
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] input,
         div[data-testid="column"] input[aria-label^="d"] {
+            background: transparent !important;
+            background-color: transparent !important;
+            background-image: none !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
             text-align: center !important;
-            font-size: 1.85rem !important;
-            font-weight: 800 !important;
+            font-size: 1.45rem !important;
+            font-weight: 700 !important;
             color: #FFFFFF !important;
             padding: 0 !important;
             margin: 0 !important;
             height: 100% !important;
             width: 100% !important;
-            background: transparent !important;
-            border: none !important;
-            outline: none !important;
-            box-shadow: none !important;
             line-height: 60px !important;
             display: flex !important;
             justify-content: center !important;
