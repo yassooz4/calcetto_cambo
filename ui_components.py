@@ -8,6 +8,7 @@ Componenti: Theme Injection, FUT Card, Plotly Radar Chart, 2D Pitch, Scoreboard
 
 import base64
 import json
+from pathlib import Path
 import textwrap
 from typing import Dict, List, Any, Optional, Tuple
 import pandas as pd
@@ -593,14 +594,17 @@ def inject_custom_theme() -> None:
         .starball-img {
             width: 110px;
             height: 110px;
-            object-fit: contain;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 12px auto;
+            display: block;
             position: relative;
             z-index: 2;
-            filter: drop-shadow(0 0 18px rgba(0, 240, 255, 0.45)) drop-shadow(0 10px 22px rgba(0, 0, 0, 0.95));
+            filter: drop-shadow(0 0 16px rgba(0, 240, 255, 0.45));
             transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .starball-img:hover {
-            transform: scale(1.06) rotate(5deg);
+            transform: scale(1.06) rotate(4deg);
         }
 
         .luxury-login-title {
@@ -638,7 +642,7 @@ def inject_custom_theme() -> None:
             box-sizing: border-box !important;
         }
 
-        /* 2. Styling dei 4 Quadratini in Vetro Iridescente (Holographic / Chromatic Glow) */
+        /* 2. Styling dei 4 Quadratini OTP Identici al Bottone Sblocca Accesso */
         div[data-testid="stForm"]:has(#luxury-pin-marker) [data-testid="stHorizontalBlock"] {
             max-width: 280px !important;
             margin: 0 auto 10px auto !important;
@@ -666,33 +670,28 @@ def inject_custom_theme() -> None:
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"] {
             border: 1.5px solid transparent !important;
             background-image: 
-                linear-gradient(rgba(13, 17, 26, 0.88), rgba(13, 17, 26, 0.88)), 
+                linear-gradient(rgba(13, 17, 26, 0.9), rgba(13, 17, 26, 0.9)), 
                 conic-gradient(from 180deg at 50% 50%, #00F0FF 0deg, #3B82F6 70deg, #FFFFFF 140deg, #FFB800 200deg, #FF3B30 270deg, #00F0FF 360deg) !important;
             background-origin: border-box !important;
             background-clip: padding-box, border-box !important;
-            border-radius: 16px !important;
+            border-radius: 14px !important;
             height: 58px !important;
             backdrop-filter: blur(16px) !important;
             -webkit-backdrop-filter: blur(16px) !important;
             box-shadow: 
-                0 10px 25px -5px rgba(0, 0, 0, 0.7),
-                0 0 15px rgba(0, 240, 255, 0.25),
-                inset 0 1px 2px rgba(255, 255, 255, 0.3) !important;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                0 8px 20px -4px rgba(0, 0, 0, 0.7),
+                0 0 12px rgba(0, 240, 255, 0.2),
+                inset 0 1px 2px rgba(255, 255, 255, 0.25) !important;
+            transition: all 0.25s ease !important;
             padding: 0 !important;
         }
 
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"]:focus-within {
-            border: 1.5px solid transparent !important;
-            background-image: 
-                linear-gradient(rgba(18, 24, 38, 0.92), rgba(18, 24, 38, 0.92)), 
-                conic-gradient(from 200deg at 50% 50%, #00F0FF 0deg, #60A5FA 70deg, #FFFFFF 140deg, #FCD34D 200deg, #F87171 270deg, #00F0FF 360deg) !important;
-            background-origin: border-box !important;
-            background-clip: padding-box, border-box !important;
             box-shadow: 
-                0 12px 28px -5px rgba(0, 0, 0, 0.8),
-                0 0 22px rgba(0, 240, 255, 0.55),
-                inset 0 0 10px rgba(255, 255, 255, 0.35) !important;
+                0 10px 25px -4px rgba(0, 0, 0, 0.8),
+                0 0 20px rgba(0, 240, 255, 0.55),
+                inset 0 0 8px rgba(255, 255, 255, 0.35) !important;
+            transform: translateY(-1px);
         }
 
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"] input,
@@ -1509,59 +1508,66 @@ def render_champions_scoreboard(
 # ==============================================================================
 # 6. SCHERMATA LOGIN & PASSCODE: LUXURY DARK NEUMORPHISM / MATTE DARK UI
 # ==============================================================================
+def get_starball_base64() -> str:
+    """
+    Recupera l'immagine generata in locale in assets/ucl_ball.* e la codifica in Data URI Base64.
+    Se non presente, restituisce un fallback SVG in Base64.
+    """
+    for ext in ["png", "jpg", "jpeg", "webp"]:
+        p = Path(__file__).parent / f"assets/ucl_ball.{ext}"
+        if p.exists():
+            with open(p, "rb") as f:
+                mime_type = "jpeg" if ext == "jpg" else ext
+                return f"data:image/{mime_type};base64,{base64.b64encode(f.read()).decode()}"
+    
+    # Fallback SVG inline
+    starball_raw_svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+      <defs>
+        <radialGradient id="sphere" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#253550" /><stop offset="35%" stop-color="#121C2B" /><stop offset="75%" stop-color="#080E18" /><stop offset="100%" stop-color="#020408" />
+        </radialGradient>
+        <linearGradient id="star" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#FFFFFF" /><stop offset="40%" stop-color="#F8FAFC" /><stop offset="75%" stop-color="#CBD5E1" /><stop offset="100%" stop-color="#94A3B8" />
+        </linearGradient>
+        <radialGradient id="rim" cx="50%" cy="50%" r="50%">
+          <stop offset="85%" stop-color="transparent" /><stop offset="100%" stop-color="rgba(0,0,0,0.85)" />
+        </radialGradient>
+        <linearGradient id="spec" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.6" /><stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <circle cx="100" cy="100" r="90" fill="url(#sphere)" stroke="rgba(255,255,255,0.22)" stroke-width="2" />
+      <g fill="url(#star)" stroke="#060910" stroke-width="1.8" stroke-linejoin="round">
+        <polygon points="100,55 110,78 135,78 115,93 122,118 100,103 78,118 85,93 65,78 90,78" />
+        <polygon points="100,14 108,34 130,29 118,47 133,62 112,57 100,74 88,57 67,62 82,47 70,29 92,34" />
+        <polygon points="163,40 160,60 180,68 162,82 168,102 148,88 135,102 133,80 113,73 132,62" />
+        <polygon points="173,120 153,120 145,138 138,120 118,127 130,108 122,90 140,95 152,80 155,100" />
+        <polygon points="100,186 92,166 70,171 82,153 67,138 88,143 100,126 112,143 133,138 118,153 130,171 108,166" />
+        <polygon points="27,160 47,160 55,142 62,160 82,153 70,172 78,190 60,185 48,200 45,180" />
+        <polygon points="37,80 57,80 65,62 72,80 92,73 80,92 88,110 70,105 58,120 55,100" />
+        <polygon points="37,40 57,53 57,73 38,67 20,80 25,60 10,47 30,47 37,27 43,47" />
+      </g>
+      <circle cx="100" cy="100" r="90" fill="url(#rim)" />
+      <path d="M 46 56 A 76 76 0 0 1 154 56" stroke="url(#spec)" stroke-width="3" stroke-linecap="round" fill="none" />
+    </svg>"""
+    return f"data:image/svg+xml;base64,{base64.b64encode(starball_raw_svg.strip().encode('utf-8')).decode('ascii')}"
+
+
 def render_luxury_pin_header(
     title: str = "4 digit code",
     subtitle: str = "Inserisci il codice PIN di accesso a 4 cifre<br>per sbloccare statistiche e formazioni"
 ) -> None:
     """
     Renderizza l'header grafico di autenticazione in stile Holographic Iridescent Fluted Glass.
-    Include l'iconico pallone UEFA Champions League Starball 3D codificato in Base64 Data URI
-    (garantito al 100% contro qualsiasi sanitizzazione di Streamlit), seguito dal titolo e dal sottotitolo.
+    Include l'iconico pallone UEFA Champions League Starball 3D caricato dall'asset locale in Base64 Data URI,
+    seguito dal titolo e dal sottotitolo.
     """
-    starball_raw_svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <defs>
-    <radialGradient id="sphere" cx="35%" cy="30%" r="70%">
-      <stop offset="0%" stop-color="#253550" />
-      <stop offset="35%" stop-color="#121C2B" />
-      <stop offset="75%" stop-color="#080E18" />
-      <stop offset="100%" stop-color="#020408" />
-    </radialGradient>
-    <linearGradient id="star" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FFFFFF" />
-      <stop offset="40%" stop-color="#F8FAFC" />
-      <stop offset="75%" stop-color="#CBD5E1" />
-      <stop offset="100%" stop-color="#94A3B8" />
-    </linearGradient>
-    <radialGradient id="rim" cx="50%" cy="50%" r="50%">
-      <stop offset="85%" stop-color="transparent" />
-      <stop offset="100%" stop-color="rgba(0,0,0,0.85)" />
-    </radialGradient>
-    <linearGradient id="spec" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.6" />
-      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
-    </linearGradient>
-  </defs>
-  <circle cx="100" cy="100" r="90" fill="url(#sphere)" stroke="rgba(255,255,255,0.22)" stroke-width="2" />
-  <g fill="url(#star)" stroke="#060910" stroke-width="1.8" stroke-linejoin="round">
-    <polygon points="100,55 110,78 135,78 115,93 122,118 100,103 78,118 85,93 65,78 90,78" />
-    <polygon points="100,14 108,34 130,29 118,47 133,62 112,57 100,74 88,57 67,62 82,47 70,29 92,34" />
-    <polygon points="163,40 160,60 180,68 162,82 168,102 148,88 135,102 133,80 113,73 132,62" />
-    <polygon points="173,120 153,120 145,138 138,120 118,127 130,108 122,90 140,95 152,80 155,100" />
-    <polygon points="100,186 92,166 70,171 82,153 67,138 88,143 100,126 112,143 133,138 118,153 130,171 108,166" />
-    <polygon points="27,160 47,160 55,142 62,160 82,153 70,172 78,190 60,185 48,200 45,180" />
-    <polygon points="37,80 57,80 65,62 72,80 92,73 80,92 88,110 70,105 58,120 55,100" />
-    <polygon points="37,40 57,53 57,73 38,67 20,80 25,60 10,47 30,47 37,27 43,47" />
-  </g>
-  <circle cx="100" cy="100" r="90" fill="url(#rim)" />
-  <path d="M 46 56 A 76 76 0 0 1 154 56" stroke="url(#spec)" stroke-width="3" stroke-linecap="round" fill="none" />
-</svg>"""
-    
-    starball_b64 = base64.b64encode(starball_raw_svg.strip().encode("utf-8")).decode("ascii")
+    starball_src = get_starball_base64()
 
     header_html = f"""
     <div id="luxury-pin-marker"></div>
     <div class="starball-glow-container">
-        <img class="starball-img" src="data:image/svg+xml;base64,{starball_b64}" alt="UEFA Champions League Starball" />
+        <img class="starball-img" src="{starball_src}" alt="UEFA Champions League Starball" />
     </div>
     <h2 class="luxury-login-title">{title}</h2>
     <p class="luxury-login-subtitle">{subtitle}</p>
