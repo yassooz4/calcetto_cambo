@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>iOS Passcode Keypad</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+    }
+
+    body {
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Plus Jakarta Sans", "Outfit", sans-serif;
+      color: #FFFFFF;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100%;
+      overflow: hidden;
+      padding: 4px 0 16px 0;
+    }
+
+    /* Container Principale Lockscreen Card */
+    .lockscreen-card {
+      width: 100%;
+      max-width: 380px;
+      margin: 0 auto;
+      background: linear-gradient(145deg, rgba(17, 21, 34, 0.92) 0%, rgba(11, 14, 23, 0.96) 100%);
+      background-image: 
+        repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 4px),
+        linear-gradient(145deg, rgba(17, 21, 34, 0.92) 0%, rgba(11, 14, 23, 0.96) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 28px;
+      box-shadow: 
+        0 30px 70px -10px rgba(0, 0, 0, 0.9), 
+        0 0 40px rgba(37, 99, 235, 0.12), 
+        inset 0 1px 1px rgba(255, 255, 255, 0.15);
+      padding: 24px 20px 24px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+    }
+
+    /* 1. Header: UEFA Champions League Starball 3D Glow */
+    .starball-container {
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 12px auto;
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.25) 0%, rgba(59, 130, 246, 0.22) 40%, rgba(15, 23, 42, 0) 70%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      filter: drop-shadow(0 10px 25px rgba(0, 0, 0, 0.8));
+    }
+
+    .starball-container::before {
+      content: '';
+      position: absolute;
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.18) 0%, transparent 70%);
+      pointer-events: none;
+      animation: pulse-glow 3s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulse-glow {
+      0% { transform: scale(0.95); opacity: 0.7; }
+      100% { transform: scale(1.08); opacity: 1; }
+    }
+
+    .starball-img {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+      position: relative;
+      z-index: 2;
+      filter: drop-shadow(0 0 14px rgba(0, 240, 255, 0.5));
+      transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .starball-img:hover {
+      transform: scale(1.05) rotate(3deg);
+    }
+
+    /* 2. Titolo & Sottotitolo */
+    .lockscreen-title {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Outfit", sans-serif;
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      letter-spacing: -0.3px;
+      margin: 4px 0 4px 0;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+    }
+
+    .lockscreen-subtitle {
+      font-size: 0.82rem;
+      color: #8F9CAE;
+      font-weight: 400;
+      line-height: 1.4;
+      margin-bottom: 20px;
+      max-width: 290px;
+    }
+
+    /* 3. Indicatori PIN (4 Cerchietti iOS) */
+    .pin-dots-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 24px;
+      height: 24px;
+    }
+
+    .pin-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255, 255, 255, 0.45);
+      background: transparent;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+      transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .pin-dot.filled {
+      border-color: #FFFFFF;
+      background: #FFFFFF;
+      box-shadow: 
+        0 0 10px rgba(255, 255, 255, 0.9), 
+        0 0 18px rgba(0, 240, 255, 0.45);
+      transform: scale(1.12);
+    }
+
+    .pin-dot.success {
+      border-color: #00E676;
+      background: #00E676;
+      box-shadow: 0 0 14px #00E676, 0 0 22px rgba(0, 230, 118, 0.6);
+      transform: scale(1.2);
+    }
+
+    .pin-dot.error {
+      border-color: #FF3B30 !important;
+      background: #FF3B30 !important;
+      box-shadow: 0 0 14px #FF3B30 !important;
+    }
+
+    /* Animazione Shake orizzontale iOS per PIN errato */
+    @keyframes ios-shake {
+      0%, 100% { transform: translateX(0); }
+      15% { transform: translateX(-12px); }
+      30% { transform: translateX(10px); }
+      45% { transform: translateX(-8px); }
+      60% { transform: translateX(6px); }
+      75% { transform: translateX(-4px); }
+      90% { transform: translateX(2px); }
+    }
+
+    .shake-animation {
+      animation: ios-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+
+    /* 4. Tastierino Numerico Circolare (3x4 Grid) */
+    .keypad-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px 22px;
+      width: 100%;
+      max-width: 290px;
+      justify-items: center;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .keypad-btn {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 
+        inset 0 1px 1px rgba(255, 255, 255, 0.2), 
+        0 4px 12px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.15s ease, transform 0.1s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      outline: none;
+    }
+
+    .keypad-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.28);
+      box-shadow: 
+        inset 0 1px 2px rgba(255, 255, 255, 0.3), 
+        0 6px 18px rgba(0, 0, 0, 0.45);
+    }
+
+    .keypad-btn:active, .keypad-btn.active {
+      background: rgba(255, 255, 255, 0.28);
+      border-color: rgba(255, 255, 255, 0.45);
+      transform: scale(0.93);
+      box-shadow: 0 0 16px rgba(255, 255, 255, 0.3);
+      transition: transform 0.05s ease;
+    }
+
+    .keypad-number {
+      font-size: 27px;
+      font-weight: 400;
+      line-height: 1;
+      color: #FFFFFF;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Outfit", sans-serif;
+      letter-spacing: -0.5px;
+    }
+
+    .keypad-letters {
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: rgba(255, 255, 255, 0.55);
+      text-transform: uppercase;
+      margin-top: 2px;
+      line-height: 1;
+    }
+
+    /* Tasto 1: numero centrato */
+    .keypad-btn.no-sub .keypad-number {
+      font-size: 28px;
+    }
+
+    /* Spazio vuoto e Tasto Cancella */
+    .keypad-spacer {
+      width: 68px;
+      height: 68px;
+      visibility: hidden;
+    }
+
+    .keypad-action-btn {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: transparent;
+      border: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: opacity 0.2s ease, transform 0.1s ease;
+      outline: none;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .keypad-action-btn.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .keypad-action-btn:hover {
+      opacity: 0.9;
+    }
+
+    .keypad-action-btn:active {
+      transform: scale(0.92);
+    }
+
+    .action-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #CBD5E1;
+      letter-spacing: 0.5px;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Plus Jakarta Sans", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .action-icon {
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    /* 5. Messaggio di Errore */
+    .error-pill {
+      margin-top: 14px;
+      min-height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #FCA5A5;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 12px;
+      padding: 4px 14px;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      pointer-events: none;
+    }
+
+    .error-pill.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Footer di supporto */
+    .lockscreen-footer-help {
+      font-size: 0.76rem;
+      color: #64748B;
+      margin-top: 12px;
+      line-height: 1.4;
+    }
+
+    .lockscreen-footer-help span {
+      color: #94A3B8;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    /* 6. Ottimizzazione Mobile (< 480px) */
+    @media (max-width: 480px) {
+      .lockscreen-card {
+        padding: 20px 14px 20px 14px;
+        border-radius: 24px;
+        max-width: 340px;
+      }
+      .starball-container {
+        width: 86px;
+        height: 86px;
+        margin-bottom: 8px;
+      }
+      .starball-img {
+        width: 76px;
+        height: 76px;
+      }
+      .lockscreen-title {
+        font-size: 1.3rem;
+      }
+      .lockscreen-subtitle {
+        font-size: 0.78rem;
+        margin-bottom: 16px;
+      }
+      .pin-dots-container {
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+      .pin-dot {
+        width: 13px;
+        height: 13px;
+      }
+      .keypad-grid {
+        gap: 10px 16px;
+        max-width: 260px;
+      }
+      .keypad-btn {
+        width: 60px;
+        height: 60px;
+      }
+      .keypad-number {
+        font-size: 24px;
+      }
+      .keypad-letters {
+        font-size: 7.5px;
+        letter-spacing: 1.5px;
+      }
+      .keypad-spacer, .keypad-action-btn {
+        width: 60px;
+        height: 60px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="lockscreen-card" id="lockscreenCard">
+    <!-- 1. Header Starball -->
+    <div class="starball-container">
+      <img id="starballImg" class="starball-img" src="" alt="UEFA Champions League Starball" />
+    </div>
+
+    <!-- 2. Titoli -->
+    <h2 class="lockscreen-title" id="lockscreenTitle">Inserisci il codice PIN</h2>
+    <p class="lockscreen-subtitle" id="lockscreenSubtitle">4 digit code per sbloccare l'applicazione</p>
+
+    <!-- 3. Indicatori PIN (4 Cerchietti) -->
+    <div class="pin-dots-container" id="pinDotsContainer">
+      <div class="pin-dot" id="dot0"></div>
+      <div class="pin-dot" id="dot1"></div>
+      <div class="pin-dot" id="dot2"></div>
+      <div class="pin-dot" id="dot3"></div>
+    </div>
+
+    <!-- 4. Tastierino Circolare 3x4 -->
+    <div class="keypad-grid">
+      <!-- Riga 1: 1, 2, 3 -->
+      <button class="keypad-btn no-sub" type="button" data-digit="1">
+        <span class="keypad-number">1</span>
+      </button>
+      <button class="keypad-btn" type="button" data-digit="2">
+        <span class="keypad-number">2</span>
+        <span class="keypad-letters">ABC</span>
+      </button>
+      <button class="keypad-btn" type="button" data-digit="3">
+        <span class="keypad-number">3</span>
+        <span class="keypad-letters">DEF</span>
+      </button>
+
+      <!-- Riga 2: 4, 5, 6 -->
+      <button class="keypad-btn" type="button" data-digit="4">
+        <span class="keypad-number">4</span>
+        <span class="keypad-letters">GHI</span>
+      </button>
+      <button class="keypad-btn" type="button" data-digit="5">
+        <span class="keypad-number">5</span>
+        <span class="keypad-letters">JKL</span>
+      </button>
+      <button class="keypad-btn" type="button" data-digit="6">
+        <span class="keypad-number">6</span>
+        <span class="keypad-letters">MNO</span>
+      </button>
+
+      <!-- Riga 3: 7, 8, 9 -->
+      <button class="keypad-btn" type="button" data-digit="7">
+        <span class="keypad-number">7</span>
+        <span class="keypad-letters">PQRS</span>
+      </button>
+      <button class="keypad-btn" type="button" data-digit="8">
+        <span class="keypad-number">8</span>
+        <span class="keypad-letters">TUV</span>
+      </button>
+      <button class="keypad-btn" type="button" data-digit="9">
+        <span class="keypad-number">9</span>
+        <span class="keypad-letters">WXYZ</span>
+      </button>
+
+      <!-- Riga 4: Spazio vuoto, 0, Cancella -->
+      <div class="keypad-spacer"></div>
+
+      <button class="keypad-btn no-sub" type="button" data-digit="0">
+        <span class="keypad-number">0</span>
+      </button>
+
+      <button class="keypad-action-btn" type="button" id="btnDelete" title="Cancella ultima cifra">
+        <div class="action-label">
+          <span class="action-icon">⌫</span>
+          <span>Cancella</span>
+        </div>
+      </button>
+    </div>
+
+    <!-- 5. Messaggio di Errore -->
+    <div class="error-pill" id="errorPill">
+      <span>⚠️ Passcode non valido</span>
+    </div>
+
+    <!-- 6. Footer Help -->
+    <div class="lockscreen-footer-help">
+      Problemi di accesso? <span>Contatta l'Amministratore</span>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // STREAMLIT COMPONENT PROTOCOL & LOGICA INTERATTIVA IOS KEYPAD
+    // =========================================================================
+    (function () {
+      let pinBuffer = "";
+      let isBusy = false;
+      let adminPin = "8765";
+      let viewerPin = "5678";
+      let errorTimeout = null;
+
+      const dots = [
+        document.getElementById("dot0"),
+        document.getElementById("dot1"),
+        document.getElementById("dot2"),
+        document.getElementById("dot3")
+      ];
+      const pinContainer = document.getElementById("pinDotsContainer");
+      const btnDelete = document.getElementById("btnDelete");
+      const errorPill = document.getElementById("errorPill");
+      const titleEl = document.getElementById("lockscreenTitle");
+      const subtitleEl = document.getElementById("lockscreenSubtitle");
+      const starballImg = document.getElementById("starballImg");
+
+      // Invio messaggi al container Streamlit
+      function sendStreamlitMessage(type, data) {
+        try {
+          window.parent.postMessage(
+            Object.assign({ isStreamlitMessage: true, type: type }, data),
+            "*"
+          );
+        } catch (e) {
+          console.error("Streamlit postMessage error:", e);
+        }
+      }
+
+      function setComponentValue(value) {
+        sendStreamlitMessage("streamlit:setComponentValue", { value: value });
+      }
+
+      function updateHeight() {
+        const height = document.body.scrollHeight || document.documentElement.scrollHeight || 580;
+        sendStreamlitMessage("streamlit:setFrameHeight", { height: height + 16 });
+      }
+
+      // Aggiornamento visuale dei 4 cerchietti
+      function updateDotsVisual() {
+        for (let i = 0; i < 4; i++) {
+          if (i < pinBuffer.length) {
+            dots[i].classList.add("filled");
+          } else {
+            dots[i].classList.remove("filled", "success", "error");
+          }
+        }
+
+        // Tasto cancella visibile solo se c'è almeno una cifra digitata
+        if (pinBuffer.length > 0) {
+          btnDelete.classList.add("visible");
+        } else {
+          btnDelete.classList.remove("visible");
+        }
+      }
+
+      // Mostra errore con animazione Shake iOS
+      function triggerShakeError(message) {
+        isBusy = true;
+        
+        // Colora i cerchi di rosso e attiva shake
+        dots.forEach(d => {
+          d.classList.remove("filled", "success");
+          d.classList.add("error");
+        });
+        pinContainer.classList.add("shake-animation");
+
+        // Mostra messaggio errore
+        if (message) {
+          errorPill.querySelector("span").textContent = "⚠️ " + message;
+        }
+        errorPill.classList.add("visible");
+
+        // Reset dopo la fine dell'animazione shake (450ms)
+        setTimeout(() => {
+          pinContainer.classList.remove("shake-animation");
+          pinBuffer = "";
+          updateDotsVisual();
+          isBusy = false;
+        }, 500);
+
+        // Nascondi il messaggio di errore dopo 2.5 secondi
+        if (errorTimeout) clearTimeout(errorTimeout);
+        errorTimeout = setTimeout(() => {
+          errorPill.classList.remove("visible");
+        }, 2500);
+      }
+
+      // Trigger successo: cerchietti verdi brillanti e invio a Streamlit
+      function triggerSuccess(pin) {
+        isBusy = true;
+        dots.forEach(d => {
+          d.classList.remove("error");
+          d.classList.add("success");
+        });
+        errorPill.classList.remove("visible");
+
+        // Breve ritardo per godere del feedback visivo prima del rerender
+        setTimeout(() => {
+          setComponentValue(pin);
+        }, 120);
+      }
+
+      // Inserimento cifra
+      function addDigit(digit) {
+        if (isBusy || pinBuffer.length >= 4) return;
+        
+        // Nascondi eventuale errore precedente
+        errorPill.classList.remove("visible");
+
+        pinBuffer += digit;
+        updateDotsVisual();
+
+        // Al raggiungimento della 4ª cifra: validazione istantanea
+        if (pinBuffer.length === 4) {
+          const entered = pinBuffer;
+          if (entered === adminPin || entered === viewerPin) {
+            triggerSuccess(entered);
+          } else {
+            triggerShakeError("Passcode non valido");
+          }
+        }
+      }
+
+      // Cancellazione ultima cifra
+      function deleteDigit() {
+        if (isBusy || pinBuffer.length === 0) return;
+        pinBuffer = pinBuffer.slice(0, -1);
+        updateDotsVisual();
+        errorPill.classList.remove("visible");
+      }
+
+      // Reset completo
+      function resetPin() {
+        if (isBusy) return;
+        pinBuffer = "";
+        updateDotsVisual();
+      }
+
+      // Setup Event Listeners Keypad (Click & Touch)
+      document.querySelectorAll(".keypad-btn").forEach(btn => {
+        const digit = btn.getAttribute("data-digit");
+        
+        // Touch & Click handling
+        btn.addEventListener("click", function (e) {
+          e.preventDefault();
+          addDigit(digit);
+        });
+
+        btn.addEventListener("touchstart", function (e) {
+          btn.classList.add("active");
+        }, { passive: true });
+
+        btn.addEventListener("touchend", function (e) {
+          btn.classList.remove("active");
+        }, { passive: true });
+
+        btn.addEventListener("touchcancel", function (e) {
+          btn.classList.remove("active");
+        }, { passive: true });
+      });
+
+      // Tasto Cancella Click & Touch
+      btnDelete.addEventListener("click", function (e) {
+        e.preventDefault();
+        deleteDigit();
+      });
+
+      // Ascolto Tastiera Fisica (Locale e Parent Window)
+      function handleKeyboardInput(e) {
+        if (e.defaultPrevented) return;
+
+        if (e.key >= "0" && e.key <= "9") {
+          addDigit(e.key);
+        } else if (e.key === "Backspace") {
+          e.preventDefault();
+          deleteDigit();
+        } else if (e.key === "Escape" || e.key === "Delete") {
+          e.preventDefault();
+          resetPin();
+        }
+      }
+
+      window.addEventListener("keydown", handleKeyboardInput);
+
+      // Collega l'ascoltatore tastiera anche alla finestra padre Streamlit
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.addEventListener("keydown", handleKeyboardInput);
+        }
+      } catch (err) {
+        // Cross-origin security fallback
+      }
+
+      // Ricezione parametri da Streamlit (render event)
+      function onRender(event) {
+        const data = event.data;
+        if (!data || data.type !== "streamlit:render") return;
+
+        const args = data.args || {};
+        if (args.admin_pin) adminPin = String(args.admin_pin);
+        if (args.viewer_pin) viewerPin = String(args.viewer_pin);
+        if (args.title) titleEl.innerHTML = args.title;
+        if (args.subtitle) subtitleEl.innerHTML = args.subtitle;
+        if (args.starball_src) starballImg.src = args.starball_src;
+        if (args.error_msg) triggerShakeError(args.error_msg);
+
+        updateHeight();
+      }
+
+      window.addEventListener("message", onRender);
+
+      // Segnala a Streamlit che il componente è pronto
+      sendStreamlitMessage("streamlit:componentReady", { apiVersion: 1 });
+      
+      // Calcolo altezza iniziale
+      setTimeout(updateHeight, 50);
+      window.addEventListener("resize", updateHeight);
+    })();
+  </script>
+</body>
+</html>

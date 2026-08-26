@@ -39,41 +39,23 @@ PIN_VIEWER = "5678"
 PIN_ADMIN = "8765"
 
 def render_pin_gate():
-    """Mostra la schermata di login con verifica PIN in stile Matte Dark Neumorphism / Luxury Dark UI."""
-    with st.form("pin_form", clear_on_submit=False):
-        ui_components.render_luxury_pin_header(
-            title="4 digit code",
-            subtitle="Inserisci il codice PIN di accesso a 4 cifre<br>per sbloccare statistiche e formazioni"
-        )
-        
-        # Layout a 4 slot per PIN (Streamlit native 4-columns con type="default" per evitare generazione icona occhio)
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            d1 = st.text_input("d1", max_chars=1, key="pin_d1", label_visibility="collapsed", type="default", autocomplete="off")
-        with c2:
-            d2 = st.text_input("d2", max_chars=1, key="pin_d2", label_visibility="collapsed", type="default", autocomplete="off")
-        with c3:
-            d3 = st.text_input("d3", max_chars=1, key="pin_d3", label_visibility="collapsed", type="default", autocomplete="off")
-        with c4:
-            d4 = st.text_input("d4", max_chars=1, key="pin_d4", label_visibility="collapsed", type="default", autocomplete="off")
-        
-        submit_btn = st.form_submit_button("Sblocca Accesso ⚡", use_container_width=True)
-        
-        ui_components.render_luxury_pin_footer()
-        
-        entered_pin = f"{d1}{d2}{d3}{d4}".strip()
-        
-        if submit_btn:
-            if entered_pin == PIN_ADMIN:
-                st.session_state["authenticated"] = True
-                st.session_state["user_role"] = "admin"
-                st.rerun()
-            elif entered_pin == PIN_VIEWER:
-                st.session_state["authenticated"] = True
-                st.session_state["user_role"] = "viewer"
-                st.rerun()
-            else:
-                ui_components.render_luxury_pin_error("Passcode non valido")
+    """Mostra la schermata di login con verifica PIN interattiva in stile Apple iOS Lockscreen Keypad."""
+    entered_pin = ui_components.render_ios_pin_keypad(
+        admin_pin=PIN_ADMIN,
+        viewer_pin=PIN_VIEWER,
+        title="Inserisci il codice PIN",
+        subtitle="4 digit code per sbloccare l'applicazione"
+    )
+    
+    if entered_pin:
+        if entered_pin == PIN_ADMIN:
+            st.session_state["authenticated"] = True
+            st.session_state["user_role"] = "admin"
+            st.rerun()
+        elif entered_pin == PIN_VIEWER:
+            st.session_state["authenticated"] = True
+            st.session_state["user_role"] = "viewer"
+            st.rerun()
 
     # Footer informativo e diagnostica rapida stato storage
     _, _, _, _, storage_source, storage_error = storage.load_data()

@@ -1000,20 +1000,24 @@ def inject_custom_theme() -> None:
             color: #38BDF8;
         }
 
-        /* Reset visuale per l'Iframe Bridge di sincronizzazione OTP */
+        /* Styling ottimizzato per Streamlit Custom Components (iOS Keypad) */
         div[data-testid="stCustomComponentV1"] {
-            height: 0 !important;
-            min-height: 0 !important;
-            margin: 0 !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            width: 100% !important;
+            margin: 0 auto !important;
             padding: 0 !important;
-            overflow: hidden !important;
-            display: block !important;
+            border: none !important;
+            background: transparent !important;
         }
         div[data-testid="stCustomComponentV1"] iframe {
-            height: 0 !important;
-            min-height: 0 !important;
             border: none !important;
-            display: none !important;
+            background: transparent !important;
+            width: 100% !important;
+            max-width: 420px !important;
+            margin: 0 auto !important;
+            display: block !important;
         }
     </style>
     """
@@ -1706,19 +1710,27 @@ def render_champions_scoreboard(
 
 
 # ==============================================================================
-# 6. SCHERMATA LOGIN & PASSCODE: LUXURY DARK NEUMORPHISM / MATTE DARK UI
+# 6. SCHERMATA LOGIN & PASSCODE: IOS LOCKSCREEN KEYPAD (APPLE PASSCODE UI)
 # ==============================================================================
+_STARBALL_BASE64_CACHE: Optional[str] = None
+
 def get_starball_base64() -> str:
     """
-    Recupera l'immagine generata in locale in assets/ucl_ball.* e la codifica in Data URI Base64.
-    Se non presente, restituisce un fallback SVG in Base64.
+    Recupera l'immagine UEFA Champions League Starball (ucl_ball.*) e la codifica in Data URI Base64.
+    Utilizza una cache in memoria per evitare letture disco ripetute.
+    Se il file non esiste, restituisce un fallback vettoriale SVG 3D.
     """
+    global _STARBALL_BASE64_CACHE
+    if _STARBALL_BASE64_CACHE is not None:
+        return _STARBALL_BASE64_CACHE
+
     for ext in ["png", "jpg", "jpeg", "webp"]:
         p = Path(__file__).parent / f"assets/ucl_ball.{ext}"
         if p.exists():
             with open(p, "rb") as f:
                 mime_type = "jpeg" if ext == "jpg" else ext
-                return f"data:image/{mime_type};base64,{base64.b64encode(f.read()).decode()}"
+                _STARBALL_BASE64_CACHE = f"data:image/{mime_type};base64,{base64.b64encode(f.read()).decode()}"
+                return _STARBALL_BASE64_CACHE
     
     # Fallback SVG inline
     starball_raw_svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
@@ -1750,20 +1762,57 @@ def get_starball_base64() -> str:
       <circle cx="100" cy="100" r="90" fill="url(#rim)" />
       <path d="M 46 56 A 76 76 0 0 1 154 56" stroke="url(#spec)" stroke-width="3" stroke-linecap="round" fill="none" />
     </svg>"""
-    return f"data:image/svg+xml;base64,{base64.b64encode(starball_raw_svg.strip().encode('utf-8')).decode('ascii')}"
+    _STARBALL_BASE64_CACHE = f"data:image/svg+xml;base64,{base64.b64encode(starball_raw_svg.strip().encode('utf-8')).decode('ascii')}"
+    return _STARBALL_BASE64_CACHE
+
+
+# Registrazione Custom Component iOS Keypad
+_COMPONENT_KEYPAD_PATH = Path(__file__).parent / "assets" / "ios_keypad"
+_ios_keypad_component = components.declare_component(
+    "ios_pin_keypad",
+    path=str(_COMPONENT_KEYPAD_PATH)
+)
+
+
+def render_ios_pin_keypad(
+    admin_pin: str = "8765",
+    viewer_pin: str = "5678",
+    title: str = "Inserisci il codice PIN",
+    subtitle: str = "4 digit code per sbloccare l'applicazione",
+    key: str = "ios_lockscreen_keypad"
+) -> Optional[str]:
+    """
+    Renderizza il Tastierino Numerico interattivo in stile Apple iOS Lockscreen (Passcode UI).
+    
+    Elementi & Comportamento:
+    1. Header con icona 3D UEFA Champions League Starball e bagliore azzurro.
+    2. Titolo & Sottotitolo descrittivo.
+    3. 4 Cerchietti Indicatori con animazione di riempimento al tap e Shake Effect in caso di errore.
+    4. Tastierino circolare 3x4 in Dark Glassmorphism con lettere subordinate Apple (2 ABC, 3 DEF...).
+    5. Tasto dinamico Cancella / Indietro (⌫).
+    6. Supporto Touch mobile 100% (nessuna tastiera a comparsa), click desktop e tastiera fisica PC.
+    7. Validazione istantanea alla 4ª cifra con invio a Streamlit.
+    """
+    starball_src = get_starball_base64()
+    
+    val = _ios_keypad_component(
+        admin_pin=admin_pin,
+        viewer_pin=viewer_pin,
+        title=title,
+        subtitle=subtitle,
+        starball_src=starball_src,
+        default="",
+        key=key
+    )
+    return str(val).strip() if val else None
 
 
 def render_luxury_pin_header(
     title: str = "4 digit code",
     subtitle: str = "Inserisci il codice PIN di accesso a 4 cifre<br>per sbloccare statistiche e formazioni"
 ) -> None:
-    """
-    Renderizza l'header grafico di autenticazione in stile Holographic Iridescent Fluted Glass.
-    Include l'iconico pallone UEFA Champions League Starball 3D caricato dall'asset locale in Base64 Data URI,
-    seguito dal titolo e dal sottotitolo.
-    """
+    """Header di compatibilità legacy."""
     starball_src = get_starball_base64()
-
     header_html = f"""
     <div id="luxury-pin-marker"></div>
     <div class="starball-glow-container">
@@ -1776,11 +1825,7 @@ def render_luxury_pin_header(
 
 
 def render_luxury_pin_footer() -> None:
-    """
-    Renderizza il testo d'aiuto elegante sotto i box di autenticazione e inietta
-    il gestore JavaScript via Iframe Bridge (components.v1.html) per garantire
-    l'Auto-Focus e l'Auto-Advance in tempo reale tra i 4 slot OTP di Streamlit.
-    """
+    """Footer di compatibilità legacy."""
     footer_html = """
     <div class="luxury-help-text">
         Problemi di accesso? <span>Contatta l'Amministratore</span>
@@ -1788,99 +1833,9 @@ def render_luxury_pin_footer() -> None:
     """
     render_html(footer_html)
 
-    # Iframe Bridge garantito per l'esecuzione JavaScript su window.parent.document
-    bridge_html = """
-    <script>
-    (function() {
-        function attachOtpAutoAdvance() {
-            try {
-                const rootDoc = window.parent.document;
-                if (!rootDoc) return;
-
-                const labels = ['d1', 'd2', 'd3', 'd4'];
-                const inputs = labels.map(lbl => rootDoc.querySelector('input[aria-label="' + lbl + '"]')).filter(Boolean);
-
-                if (inputs.length === 4) {
-                    inputs.forEach((inp, idx) => {
-                        if (inp.dataset.otpAttached === "true") return;
-                        inp.dataset.otpAttached = "true";
-
-                        // 1. Auto-Advance alla digitazione di 1 carattere
-                        inp.addEventListener('input', function() {
-                            if (this.value && this.value.length >= 1) {
-                                if (idx < 3) {
-                                    inputs[idx + 1].focus();
-                                    inputs[idx + 1].select();
-                                }
-                            }
-                        });
-
-                        // 2. Navigazione Backspace e Frecce
-                        inp.addEventListener('keydown', function(e) {
-                            if (e.key === 'Backspace') {
-                                if (!this.value && idx > 0) {
-                                    e.preventDefault();
-                                    inputs[idx - 1].value = '';
-                                    inputs[idx - 1].dispatchEvent(new Event('input', { bubbles: true }));
-                                    inputs[idx - 1].dispatchEvent(new Event('change', { bubbles: true }));
-                                    inputs[idx - 1].focus();
-                                    inputs[idx - 1].select();
-                                }
-                            } else if (e.key === 'ArrowLeft' && idx > 0) {
-                                inputs[idx - 1].focus();
-                                inputs[idx - 1].select();
-                            } else if (e.key === 'ArrowRight' && idx < 3) {
-                                inputs[idx + 1].focus();
-                                inputs[idx + 1].select();
-                            }
-                        });
-
-                        // 3. Supporto Incolla (Paste 4 cifre)
-                        inp.addEventListener('paste', function(e) {
-                            e.preventDefault();
-                            const pasteData = (e.clipboardData || window.clipboardData).getData('text').trim();
-                            if (pasteData.length === 4) {
-                                for (let i = 0; i < 4; i++) {
-                                    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                                    nativeSetter.call(inputs[i], pasteData[i]);
-                                    inputs[i].dispatchEvent(new Event('input', { bubbles: true }));
-                                    inputs[i].dispatchEvent(new Event('change', { bubbles: true }));
-                                }
-                                inputs[3].focus();
-                            }
-                        });
-                    });
-                }
-            } catch(err) {
-                console.error("OTP Bridge error:", err);
-            }
-        }
-
-        attachOtpAutoAdvance();
-
-        try {
-            if (window.parent && window.parent.document) {
-                const observer = new MutationObserver(attachOtpAutoAdvance);
-                observer.observe(window.parent.document.body, { childList: true, subtree: true });
-            }
-        } catch(e) {}
-
-        let attempts = 0;
-        const interval = setInterval(() => {
-            attachOtpAutoAdvance();
-            attempts++;
-            if (attempts > 15) clearInterval(interval);
-        }, 200);
-    })();
-    </script>
-    """
-    components.html(bridge_html, height=0)
-
 
 def render_luxury_pin_error(message: str = "Passcode non valido") -> None:
-    """
-    Renderizza un messaggio di errore elegante in stile Luxury Matte Dark UI.
-    """
+    """Badge di errore di compatibilità legacy."""
     error_html = f"""
     <div class="luxury-error-pill">
         <span>⚠️ {message}</span>
