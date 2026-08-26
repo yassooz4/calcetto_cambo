@@ -643,31 +643,43 @@ def inject_custom_theme() -> None:
         }
 
         /* 2. Styling dei 4 Quadratini OTP Identici al Bottone Sblocca Accesso */
+        [data-testid="stForm"] [data-testid="stHorizontalBlock"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) [data-testid="stHorizontalBlock"] {
             max-width: 280px !important;
-            margin: 0 auto 10px auto !important;
-            gap: 10px !important;
-            flex-wrap: nowrap !important;
+            margin: 0 auto 12px auto !important;
+            gap: 12px !important;
             display: flex !important;
+            justify-content: center !important;
+            flex-wrap: nowrap !important;
         }
 
+        [data-testid="stForm"] [data-testid="stHorizontalBlock"] > div[data-testid="column"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) [data-testid="stHorizontalBlock"] > div[data-testid="column"] {
             min-width: 0 !important;
             flex: 1 1 0 !important;
             width: auto !important;
         }
 
+        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInput"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInput"] {
             width: 100% !important;
             margin: 0 auto !important;
         }
 
+        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInput"] label,
+        [data-testid="stForm"] div[data-testid="column"] label,
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInput"] label,
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] label {
             display: none !important;
         }
 
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"] {
+        /* Bordo Prismatico Iridescente IDENTICO a Sblocca Accesso */
+        [data-testid="stForm"] [data-testid="stHorizontalBlock"] [data-baseweb="input"],
+        [data-testid="stForm"] [data-testid="stHorizontalBlock"] [data-baseweb="base-input"],
+        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInputRootElement"] > div,
+        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInput"] > div,
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"],
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="base-input"] {
             border: 1.5px solid transparent !important;
             background-image: 
                 linear-gradient(rgba(13, 17, 26, 0.9), rgba(13, 17, 26, 0.9)), 
@@ -675,42 +687,60 @@ def inject_custom_theme() -> None:
             background-origin: border-box !important;
             background-clip: padding-box, border-box !important;
             border-radius: 14px !important;
-            height: 58px !important;
+            height: 60px !important;
+            min-height: 60px !important;
             backdrop-filter: blur(16px) !important;
             -webkit-backdrop-filter: blur(16px) !important;
             box-shadow: 
                 0 8px 20px -4px rgba(0, 0, 0, 0.7),
-                0 0 12px rgba(0, 240, 255, 0.2),
+                0 0 12px rgba(0, 240, 255, 0.25),
                 inset 0 1px 2px rgba(255, 255, 255, 0.25) !important;
-            transition: all 0.25s ease !important;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            overflow: hidden !important;
             padding: 0 !important;
         }
 
+        /* Glow al Focus / Digitazione */
+        [data-testid="stForm"] [data-testid="stHorizontalBlock"] [data-baseweb="input"]:focus-within,
+        [data-testid="stForm"] [data-testid="stHorizontalBlock"] [data-baseweb="base-input"]:focus-within,
+        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInputRootElement"] > div:focus-within,
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"]:focus-within {
             box-shadow: 
                 0 10px 25px -4px rgba(0, 0, 0, 0.8),
                 0 0 20px rgba(0, 240, 255, 0.55),
                 inset 0 0 8px rgba(255, 255, 255, 0.35) !important;
-            transform: translateY(-1px);
+            transform: translateY(-2px);
         }
 
+        /* Testo Cifra / Pallino Centrato e Grande */
+        [data-testid="stForm"] [data-testid="stHorizontalBlock"] input,
+        [data-testid="stForm"] div[data-testid="column"] input,
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"] input,
-        div[data-testid="column"] input {
+        div[data-testid="column"] input[aria-label^="d"] {
             text-align: center !important;
-            font-size: 1.6rem !important;
-            font-weight: 700 !important;
+            font-size: 1.85rem !important;
+            font-weight: 800 !important;
             color: #FFFFFF !important;
             padding: 0 !important;
+            margin: 0 !important;
+            height: 100% !important;
+            width: 100% !important;
             background: transparent !important;
             border: none !important;
+            outline: none !important;
             box-shadow: none !important;
-            height: 58px !important;
-            width: 100% !important;
-            -webkit-text-security: disc !important;
-            text-security: disc !important;
-            font-family: var(--font-luxury), monospace !important;
+            line-height: 60px !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            text-indent: 0 !important;
+            letter-spacing: 0 !important;
+            caret-color: #00F0FF !important;
+            font-family: var(--font-luxury), 'Outfit', sans-serif !important;
         }
 
+        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInput"] button,
+        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInput"] svg,
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInput"] button,
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInput"] svg,
         div[data-testid="column"] button,
