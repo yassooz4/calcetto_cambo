@@ -11,6 +11,7 @@ import textwrap
 from typing import Dict, List, Any, Optional, Tuple
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import plotly.graph_objects as go
 
 
@@ -791,6 +792,22 @@ def inject_custom_theme() -> None:
         .luxury-help-text span:hover {
             color: #38BDF8;
         }
+
+        /* Reset visuale per l'Iframe Bridge di sincronizzazione OTP */
+        div[data-testid="stCustomComponentV1"] {
+            height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            display: block !important;
+        }
+        div[data-testid="stCustomComponentV1"] iframe {
+            height: 0 !important;
+            min-height: 0 !important;
+            border: none !important;
+            display: none !important;
+        }
     </style>
     """
     render_html(theme_css)
@@ -1512,71 +1529,103 @@ def render_luxury_pin_header(
 def render_luxury_pin_footer() -> None:
     """
     Renderizza il testo d'aiuto elegante sotto i box di autenticazione e inietta
-    il gestore JavaScript per Auto-Focus e Auto-Advance tra i 4 slot OTP.
+    il gestore JavaScript via Iframe Bridge (components.v1.html) per garantire
+    l'Auto-Focus e l'Auto-Advance in tempo reale tra i 4 slot OTP di Streamlit.
     """
     footer_html = """
     <div class="luxury-help-text">
         Problemi di accesso? <span>Contatta l'Amministratore</span>
     </div>
+    """
+    render_html(footer_html)
+
+    # Iframe Bridge garantito per l'esecuzione JavaScript su window.parent.document
+    bridge_html = """
     <script>
     (function() {
-        function setupOtpAutoAdvance() {
-            const labels = ['d1', 'd2', 'd3', 'd4'];
-            const inputs = labels.map(l => document.querySelector('input[aria-label="' + l + '"]')).filter(Boolean);
-            
-            if (inputs.length === 4) {
-                inputs.forEach((inp, idx) => {
-                    if (inp.dataset.otpBound === "true") return;
-                    inp.dataset.otpBound = "true";
+        function attachOtpAutoAdvance() {
+            try {
+                const rootDoc = window.parent.document;
+                if (!rootDoc) return;
 
-                    // Auto-advance alla digitazione
-                    inp.addEventListener('input', function() {
-                        if (this.value && this.value.length >= 1 && idx < 3) {
-                            inputs[idx + 1].focus();
-                            inputs[idx + 1].select();
-                        }
-                    });
+                const labels = ['d1', 'd2', 'd3', 'd4'];
+                const inputs = labels.map(lbl => rootDoc.querySelector('input[aria-label="' + lbl + '"]')).filter(Boolean);
 
-                    // Backspace per tornare alla cella precedente se vuota
-                    inp.addEventListener('keydown', function(e) {
-                        if (e.key === 'Backspace' && !this.value && idx > 0) {
-                            inputs[idx - 1].focus();
-                            inputs[idx - 1].select();
-                        }
-                    });
+                if (inputs.length === 4) {
+                    inputs.forEach((inp, idx) => {
+                        if (inp.dataset.otpAttached === "true") return;
+                        inp.dataset.otpAttached = "true";
 
-                    // Supporto Incolla (Paste 4 cifre)
-                    inp.addEventListener('paste', function(e) {
-                        e.preventDefault();
-                        const pasteData = (e.clipboardData || window.clipboardData).getData('text').trim();
-                        if (pasteData.length === 4) {
-                            for (let i = 0; i < 4; i++) {
-                                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-                                nativeInputValueSetter.call(inputs[i], pasteData[i]);
-                                inputs[i].dispatchEvent(new Event('input', { bubbles: true }));
-                                inputs[i].dispatchEvent(new Event('change', { bubbles: true }));
+                        // 1. Auto-Advance alla digitazione di 1 carattere
+                        inp.addEventListener('input', function() {
+                            if (this.value && this.value.length >= 1) {
+                                if (idx < 3) {
+                                    inputs[idx + 1].focus();
+                                    inputs[idx + 1].select();
+                                }
                             }
-                            inputs[3].focus();
-                        }
+                        });
+
+                        // 2. Navigazione Backspace e Frecce
+                        inp.addEventListener('keydown', function(e) {
+                            if (e.key === 'Backspace') {
+                                if (!this.value && idx > 0) {
+                                    e.preventDefault();
+                                    inputs[idx - 1].value = '';
+                                    inputs[idx - 1].dispatchEvent(new Event('input', { bubbles: true }));
+                                    inputs[idx - 1].dispatchEvent(new Event('change', { bubbles: true }));
+                                    inputs[idx - 1].focus();
+                                    inputs[idx - 1].select();
+                                }
+                            } else if (e.key === 'ArrowLeft' && idx > 0) {
+                                inputs[idx - 1].focus();
+                                inputs[idx - 1].select();
+                            } else if (e.key === 'ArrowRight' && idx < 3) {
+                                inputs[idx + 1].focus();
+                                inputs[idx + 1].select();
+                            }
+                        });
+
+                        // 3. Supporto Incolla (Paste 4 cifre)
+                        inp.addEventListener('paste', function(e) {
+                            e.preventDefault();
+                            const pasteData = (e.clipboardData || window.clipboardData).getData('text').trim();
+                            if (pasteData.length === 4) {
+                                for (let i = 0; i < 4; i++) {
+                                    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                                    nativeSetter.call(inputs[i], pasteData[i]);
+                                    inputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+                                    inputs[i].dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+                                inputs[3].focus();
+                            }
+                        });
                     });
-                });
+                }
+            } catch(err) {
+                console.error("OTP Bridge error:", err);
             }
         }
 
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', setupOtpAutoAdvance);
-        } else {
-            setupOtpAutoAdvance();
-        }
-        
+        attachOtpAutoAdvance();
+
         try {
-            const observer = new MutationObserver(setupOtpAutoAdvance);
-            observer.observe(document.body, { childList: true, subtree: true });
+            if (window.parent && window.parent.document) {
+                const observer = new MutationObserver(attachOtpAutoAdvance);
+                observer.observe(window.parent.document.body, { childList: true, subtree: true });
+            }
         } catch(e) {}
+
+        let attempts = 0;
+        const interval = setInterval(() => {
+            attachOtpAutoAdvance();
+            attempts++;
+            if (attempts > 15) clearInterval(interval);
+        }, 200);
     })();
     </script>
     """
-    render_html(footer_html)
+    components.html(bridge_html, height=0)
 
 
 def render_luxury_pin_error(message: str = "Passcode non valido") -> None:
@@ -1589,6 +1638,7 @@ def render_luxury_pin_error(message: str = "Passcode non valido") -> None:
     </div>
     """
     render_html(error_html)
+
 
 
 
