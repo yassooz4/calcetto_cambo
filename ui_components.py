@@ -564,43 +564,69 @@ def inject_custom_theme() -> None:
             text-align: center;
             box-sizing: border-box;
         }
-        .luxury-badge-wrapper {
+        
+        /* 1. Pure CSS 3D Luxury Shield */
+        .luxury-shield-container {
             display: flex;
             justify-content: center;
             align-items: center;
-            margin: 0 auto 12px auto;
             position: relative;
-            width: 140px;
-            height: 155px;
+            margin: 0 auto 16px auto;
+            width: 120px;
+            height: 130px;
         }
-        .luxury-badge-glow {
+        .luxury-shield-glow {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 140px;
-            height: 140px;
-            background: radial-gradient(circle, rgba(59, 130, 246, 0.22) 0%, rgba(59, 130, 246, 0) 70%);
+            width: 130px;
+            height: 130px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.32) 0%, rgba(59, 130, 246, 0) 70%);
             border-radius: 50%;
             pointer-events: none;
             z-index: 1;
         }
-        .luxury-3d-shield-svg {
+        .luxury-shield-3d {
+            width: 95px;
+            height: 115px;
+            background: linear-gradient(180deg, #242D40 0%, #121724 60%, #090C14 100%);
+            clip-path: polygon(50% 0%, 100% 12%, 100% 72%, 50% 100%, 0% 72%, 0% 12%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             position: relative;
             z-index: 2;
-            filter: drop-shadow(0 15px 30px rgba(0, 0, 0, 0.85));
+            box-shadow: 0 16px 35px rgba(0, 0, 0, 0.85);
+            border-top: 2px solid rgba(255, 255, 255, 0.4);
+            filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.85));
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .luxury-3d-shield-svg:hover {
-            transform: translateY(-3px) scale(1.02);
+        .luxury-shield-3d:hover {
+            transform: translateY(-2px) scale(1.03);
         }
+        .luxury-shield-inner {
+            width: 83px;
+            height: 103px;
+            background: linear-gradient(180deg, #182030 0%, #0D111A 100%);
+            clip-path: polygon(50% 0%, 100% 12%, 100% 72%, 50% 100%, 0% 72%, 0% 12%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.1);
+        }
+        .luxury-shield-icon {
+            font-size: 2.3rem;
+            filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.8));
+            line-height: 1;
+            user-select: none;
+        }
+
         .luxury-login-title {
             font-family: var(--font-luxury) !important;
             font-size: 1.65rem !important;
             font-weight: 700 !important;
             color: #FFFFFF !important;
             letter-spacing: -0.5px !important;
-            margin: 14px 0 6px 0 !important;
+            margin: 10px 0 6px 0 !important;
             text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
         }
         .luxury-login-subtitle {
@@ -609,37 +635,8 @@ def inject_custom_theme() -> None:
             color: #8F9CAE !important;
             font-weight: 400 !important;
             line-height: 1.45 !important;
-            margin: 0 auto 22px auto !important;
+            margin: 0 auto 24px auto !important;
             max-width: 320px !important;
-        }
-
-        /* 4 Glassmorphism OTP Slots */
-        .otp-glass-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            max-width: 320px;
-            margin: 0 auto 0 auto;
-            position: relative;
-            z-index: 1;
-            pointer-events: none;
-        }
-        .otp-glass-cell {
-            height: 64px;
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1.5px solid rgba(255, 255, 255, 0.08);
-            border-radius: 14px;
-            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0, 0, 0, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.6rem;
-            font-weight: 700;
-            color: #FFFFFF;
-            font-family: var(--font-luxury);
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         /* Form Container Styled as the Floating Luxury Card */
@@ -658,7 +655,7 @@ def inject_custom_theme() -> None:
             box-sizing: border-box !important;
         }
 
-        /* Streamlit Input Layered Over Glass Slots & Eye Icon Removal */
+        /* 2. Direct Compact Styled Streamlit Text Input (No Double Layer, Eye Hidden) */
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] label {
             display: none !important;
         }
@@ -672,10 +669,9 @@ def inject_custom_theme() -> None:
             pointer-events: none !important;
         }
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] {
-            margin-top: -64px !important;
-            margin-bottom: 6px !important;
+            max-width: 260px !important;
+            margin: 0 auto !important;
             position: relative !important;
-            z-index: 2 !important;
         }
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] div[data-baseweb="input"] {
             background: transparent !important;
@@ -684,34 +680,29 @@ def inject_custom_theme() -> None:
             padding: 0 !important;
         }
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] input {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-            color: #FFFFFF !important;
-            font-size: 1.7rem !important;
-            font-weight: 700 !important;
+            background: rgba(11, 14, 23, 0.7) !important;
+            border: 1.5px solid rgba(255, 255, 255, 0.12) !important;
+            border-radius: 16px !important;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
             text-align: center !important;
-            letter-spacing: clamp(42px, 12vw, 54px) !important;
-            text-indent: clamp(22px, 6vw, 30px) !important;
-            height: 64px !important;
-            padding: 0 !important;
-            cursor: pointer !important;
-            caret-color: #3B82F6 !important;
+            letter-spacing: 14px !important;
+            text-indent: 14px !important;
+            font-size: 1.4rem !important;
+            font-weight: 700 !important;
+            color: #FFFFFF !important;
+            height: 54px !important;
+            max-width: 260px !important;
+            margin: 0 auto !important;
+            padding: 0 16px !important;
+            transition: all 0.25s ease !important;
             font-family: var(--font-luxury), monospace !important;
         }
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] input:focus {
-            border: none !important;
+            border-color: rgba(255, 255, 255, 0.5) !important;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6), 0 0 15px rgba(59, 130, 246, 0.3) !important;
             outline: none !important;
-            box-shadow: none !important;
-        }
-
-        /* Focus Active Glow on First Slot / Active Slot */
-        div[data-testid="stForm"]:has(#luxury-pin-marker):focus-within .otp-glass-cell {
-            border-color: rgba(255, 255, 255, 0.22);
-        }
-        div[data-testid="stForm"]:has(#luxury-pin-marker):focus-within .otp-glass-cell:first-child {
-            border: 1.5px solid rgba(255, 255, 255, 0.6) !important;
-            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6), 0 0 14px rgba(255, 255, 255, 0.18), 0 8px 20px rgba(0, 0, 0, 0.4) !important;
         }
 
         /* Sleek Button in Pin Gate */
@@ -730,7 +721,7 @@ def inject_custom_theme() -> None:
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
             width: 100% !important;
-            max-width: 320px !important;
+            max-width: 260px !important;
             margin: 16px auto 0 auto !important;
             display: block !important;
             height: 46px !important;
@@ -759,7 +750,7 @@ def inject_custom_theme() -> None:
             font-size: 0.85rem;
             font-weight: 600;
             margin: 14px auto 0 auto;
-            max-width: 320px;
+            max-width: 260px;
             font-family: var(--font-luxury);
             text-align: center;
         }
@@ -1482,80 +1473,21 @@ def render_luxury_pin_header(
 ) -> None:
     """
     Renderizza l'header grafico di autenticazione in stile Matte Dark Neumorphism / Luxury Dark UI.
-    Include l'imponente scudetto/crest 3D satinato (~140px) con riflesso superiore, lateral blue sheen,
-    emblema geometrico in rilievo, titolo geometrico '4 digit code' e i 4 box in stile vetro glassmorphism.
+    Include il maestoso scudetto 3D satinato in puro CSS con riflesso superiore, luce blu e stella dorata,
+    seguito dal titolo e dal sottotitolo.
     """
     header_html = f"""
     <div id="luxury-pin-marker"></div>
-    <div class="luxury-badge-wrapper">
-        <div class="luxury-badge-glow"></div>
-        <svg class="luxury-3d-shield-svg" width="130" height="150" viewBox="0 0 130 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <linearGradient id="shieldBodyGrad" x1="65" y1="50" x2="65" y2="145" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#1C2333" />
-                    <stop offset="35%" stop-color="#121724" />
-                    <stop offset="85%" stop-color="#0B0E17" />
-                    <stop offset="100%" stop-color="#080A10" />
-                </linearGradient>
-                <linearGradient id="shieldRimGrad" x1="15" y1="50" x2="115" y2="145" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.32" />
-                    <stop offset="35%" stop-color="#3B82F6" stop-opacity="0.25" />
-                    <stop offset="70%" stop-color="#1E3A8A" stop-opacity="0.1" />
-                    <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.05" />
-                </linearGradient>
-                <linearGradient id="archGrad" x1="25" y1="10" x2="105" y2="70" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#283247" />
-                    <stop offset="30%" stop-color="#161E2E" />
-                    <stop offset="70%" stop-color="#0E121B" />
-                    <stop offset="100%" stop-color="#1B2335" />
-                </linearGradient>
-                <filter id="monogramRelief" x="-10%" y="-10%" width="120%" height="120%">
-                    <feDropShadow dx="0" dy="1.5" stdDeviation="0.8" flood-color="#000000" flood-opacity="0.9"/>
-                    <feDropShadow dx="0" dy="-0.8" stdDeviation="0.5" flood-color="#FFFFFF" flood-opacity="0.2"/>
-                </filter>
-            </defs>
-
-            <!-- 3D Satin Arch / Padlock Loop -->
-            <path d="M 38 72 V 40 C 38 22 50 10 65 10 C 80 10 92 22 92 40 V 72" 
-                  stroke="url(#archGrad)" stroke-width="15" stroke-linecap="round" fill="none" />
-            <!-- Arch Top Highlight Specular Edge -->
-            <path d="M 47 34 C 52 20 60 14 65 14 C 70 14 78 20 83 34" 
-                  stroke="rgba(255,255,255,0.28)" stroke-width="2.5" stroke-linecap="round" fill="none" />
-            <!-- Lateral Blue Glow Rim on Arch -->
-            <path d="M 31 62 V 40 C 31 19 46 3 65 3 C 84 3 99 19 99 40 V 62" 
-                  stroke="rgba(59,130,246,0.3)" stroke-width="1.5" fill="none" />
-
-            <!-- 3D Main Shield / Padlock Body -->
-            <rect x="18" y="50" width="94" height="90" rx="20" fill="url(#shieldBodyGrad)" stroke="url(#shieldRimGrad)" stroke-width="1.5" />
-
-            <!-- Top Edge Specular Bevel Reflection -->
-            <path d="M 28 51.5 H 102" stroke="rgba(255,255,255,0.35)" stroke-width="1.5" stroke-linecap="round" />
-
-            <!-- Lateral Subtle Blue Sheen -->
-            <path d="M 19 65 V 122" stroke="rgba(59, 130, 246, 0.3)" stroke-width="1.5" />
-            <path d="M 111 65 V 122" stroke="rgba(59, 130, 246, 0.3)" stroke-width="1.5" />
-
-            <!-- Center 3D Luxury Geometric Monogram / Rosette -->
-            <g filter="url(#monogramRelief)" opacity="0.68" transform="translate(46, 76)">
-                <rect x="4" y="4" width="14" height="14" rx="3.5" fill="none" stroke="#64748B" stroke-width="2" />
-                <rect x="20" y="4" width="14" height="14" rx="3.5" fill="none" stroke="#64748B" stroke-width="2" />
-                <rect x="4" y="20" width="14" height="14" rx="3.5" fill="none" stroke="#64748B" stroke-width="2" />
-                <rect x="20" y="20" width="14" height="14" rx="3.5" fill="none" stroke="#64748B" stroke-width="2" />
-                <rect x="12" y="12" width="14" height="14" rx="3.5" fill="none" stroke="#94A3B8" stroke-width="2" />
-                <circle cx="19" cy="19" r="3.5" fill="#3B82F6" fill-opacity="0.5" />
-            </g>
-        </svg>
+    <div class="luxury-shield-container">
+        <div class="luxury-shield-glow"></div>
+        <div class="luxury-shield-3d">
+            <div class="luxury-shield-inner">
+                <span class="luxury-shield-icon">⭐</span>
+            </div>
+        </div>
     </div>
     <h2 class="luxury-login-title">{title}</h2>
     <p class="luxury-login-subtitle">{subtitle}</p>
-
-    <!-- 4 Separate Glassmorphic OTP Boxes -->
-    <div class="otp-glass-grid">
-        <div class="otp-glass-cell" id="otp-cell-0"></div>
-        <div class="otp-glass-cell" id="otp-cell-1"></div>
-        <div class="otp-glass-cell" id="otp-cell-2"></div>
-        <div class="otp-glass-cell" id="otp-cell-3"></div>
-    </div>
     """
     render_html(header_html)
 
@@ -1582,5 +1514,6 @@ def render_luxury_pin_error(message: str = "Passcode non valido") -> None:
     </div>
     """
     render_html(error_html)
+
 
 
