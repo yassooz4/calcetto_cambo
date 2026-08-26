@@ -48,26 +48,29 @@ def render_pin_gate():
                 subtitle="Inserisci il codice PIN di accesso a 4 cifre<br>per sbloccare statistiche e formazioni"
             )
             
-            pin_input = st.text_input(
-                "Passcode",
-                type="password",
-                placeholder="",
-                max_chars=4,
-                key="pin_passcode_input",
-                autocomplete="off"
-            )
+            # Layout a 4 slot per PIN (Streamlit native 4-columns)
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                d1 = st.text_input("d1", max_chars=1, key="pin_d1", label_visibility="collapsed", type="password")
+            with c2:
+                d2 = st.text_input("d2", max_chars=1, key="pin_d2", label_visibility="collapsed", type="password")
+            with c3:
+                d3 = st.text_input("d3", max_chars=1, key="pin_d3", label_visibility="collapsed", type="password")
+            with c4:
+                d4 = st.text_input("d4", max_chars=1, key="pin_d4", label_visibility="collapsed", type="password")
             
             submit_btn = st.form_submit_button("Sblocca Accesso ⚡", use_container_width=True)
             
             ui_components.render_luxury_pin_footer()
             
+            entered_pin = f"{d1}{d2}{d3}{d4}".strip()
+            
             if submit_btn:
-                pin_clean = pin_input.strip()
-                if pin_clean == PIN_ADMIN:
+                if entered_pin == PIN_ADMIN:
                     st.session_state["authenticated"] = True
                     st.session_state["user_role"] = "admin"
                     st.rerun()
-                elif pin_clean == PIN_VIEWER:
+                elif entered_pin == PIN_VIEWER:
                     st.session_state["authenticated"] = True
                     st.session_state["user_role"] = "viewer"
                     st.rerun()

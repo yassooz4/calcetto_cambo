@@ -481,11 +481,11 @@ def inject_custom_theme() -> None:
            ---------------------------------------------------------------------- */
         @media (max-width: 768px) {
             /* Layout Streamlit Columns Stacking */
-            [data-testid="stHorizontalBlock"] {
+            [data-testid="stHorizontalBlock"]:not(:has(input[aria-label="d1"])) {
                 flex-wrap: wrap !important;
                 gap: 12px !important;
             }
-            [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+            [data-testid="stHorizontalBlock"]:not(:has(input[aria-label="d1"])) > [data-testid="column"] {
                 min-width: 100% !important;
                 flex: 1 1 100% !important;
                 width: 100% !important;
@@ -655,66 +655,65 @@ def inject_custom_theme() -> None:
             box-sizing: border-box !important;
         }
 
-        /* 2. Background a 4 Slot di Vetro sull'Input Nativo & Pulizia Elementi Streamlit */
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] label,
-        [data-testid="stTextInput"] label {
-            display: none !important;
+        /* 2. Styling dei 4 Quadratini in Vetro OTP */
+        div[data-testid="stForm"]:has(#luxury-pin-marker) [data-testid="stHorizontalBlock"] {
+            max-width: 280px !important;
+            margin: 0 auto 10px auto !important;
+            gap: 10px !important;
+            flex-wrap: nowrap !important;
+            display: flex !important;
         }
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] button,
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] div:has(> button),
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] svg,
-        [data-testid="stTextInput"] button {
-            display: none !important;
-            visibility: hidden !important;
-            width: 0 !important;
-            height: 0 !important;
-            pointer-events: none !important;
+
+        div[data-testid="stForm"]:has(#luxury-pin-marker) [data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            min-width: 0 !important;
+            flex: 1 1 0 !important;
+            width: auto !important;
         }
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] {
-            width: 256px !important;
-            max-width: 256px !important;
+
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInput"] {
+            width: 100% !important;
             margin: 0 auto !important;
-            position: relative !important;
         }
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] div[data-baseweb="input"] {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
+
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInput"] label,
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] label {
+            display: none !important;
+        }
+
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"] {
+            background: rgba(255, 255, 255, 0.03) !important;
+            border: 1.5px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 14px !important;
+            height: 58px !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6), 0 6px 16px rgba(0, 0, 0, 0.3) !important;
+            transition: all 0.2s ease !important;
             padding: 0 !important;
         }
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] input,
-        [data-testid="stTextInput"] input {
-            background: repeating-linear-gradient(
-                to right,
-                rgba(255, 255, 255, 0.04) 0px,
-                rgba(255, 255, 255, 0.04) 52px,
-                transparent 52px,
-                transparent 64px
-            ) !important;
-            border: 1px solid rgba(255, 255, 255, 0.08) !important;
-            border-radius: 14px !important;
-            width: 256px !important;
-            max-width: 256px !important;
-            height: 58px !important;
-            padding: 0 6px !important;
-            margin: 0 auto !important;
-            font-family: 'Outfit', 'Inter', monospace !important;
+
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"]:focus-within {
+            border-color: rgba(255, 255, 255, 0.55) !important;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6), 0 0 16px rgba(59, 130, 246, 0.3) !important;
+        }
+
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"] input {
+            text-align: center !important;
             font-size: 1.6rem !important;
             font-weight: 700 !important;
             color: #FFFFFF !important;
-            letter-spacing: 42px !important;
-            text-indent: 20px !important;
-            text-align: left !important;
-            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0, 0, 0, 0.3) !important;
-            backdrop-filter: blur(12px) !important;
-            -webkit-backdrop-filter: blur(12px) !important;
-            transition: all 0.25s ease !important;
+            padding: 0 !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            height: 58px !important;
+            width: 100% !important;
+            font-family: var(--font-luxury), monospace !important;
         }
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] input:focus,
-        [data-testid="stTextInput"] input:focus {
-            border-color: rgba(255, 255, 255, 0.35) !important;
-            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6), 0 0 15px rgba(59, 130, 246, 0.25) !important;
-            outline: none !important;
+
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInput"] button,
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInput"] svg {
+            display: none !important;
         }
 
         /* Sleek Button in Pin Gate */
@@ -733,7 +732,7 @@ def inject_custom_theme() -> None:
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
             width: 100% !important;
-            max-width: 256px !important;
+            max-width: 280px !important;
             margin: 16px auto 0 auto !important;
             display: block !important;
             height: 46px !important;
@@ -762,7 +761,7 @@ def inject_custom_theme() -> None:
             font-size: 0.85rem;
             font-weight: 600;
             margin: 14px auto 0 auto;
-            max-width: 256px;
+            max-width: 280px;
             font-family: var(--font-luxury);
             text-align: center;
         }
