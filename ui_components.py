@@ -655,13 +655,15 @@ def inject_custom_theme() -> None:
             box-sizing: border-box !important;
         }
 
-        /* 2. Direct Compact Styled Streamlit Text Input (No Double Layer, Eye Hidden) */
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] label {
+        /* 2. Background a 4 Slot di Vetro sull'Input Nativo & Pulizia Elementi Streamlit */
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] label,
+        [data-testid="stTextInput"] label {
             display: none !important;
         }
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] button,
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] div:has(> button),
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] svg {
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] svg,
+        [data-testid="stTextInput"] button {
             display: none !important;
             visibility: hidden !important;
             width: 0 !important;
@@ -669,7 +671,8 @@ def inject_custom_theme() -> None:
             pointer-events: none !important;
         }
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] {
-            max-width: 260px !important;
+            width: 256px !important;
+            max-width: 256px !important;
             margin: 0 auto !important;
             position: relative !important;
         }
@@ -679,29 +682,38 @@ def inject_custom_theme() -> None:
             box-shadow: none !important;
             padding: 0 !important;
         }
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] input {
-            background: rgba(11, 14, 23, 0.7) !important;
-            border: 1.5px solid rgba(255, 255, 255, 0.12) !important;
-            border-radius: 16px !important;
-            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6) !important;
-            backdrop-filter: blur(10px) !important;
-            -webkit-backdrop-filter: blur(10px) !important;
-            text-align: center !important;
-            letter-spacing: 14px !important;
-            text-indent: 14px !important;
-            font-size: 1.4rem !important;
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] input,
+        [data-testid="stTextInput"] input {
+            background: repeating-linear-gradient(
+                to right,
+                rgba(255, 255, 255, 0.04) 0px,
+                rgba(255, 255, 255, 0.04) 52px,
+                transparent 52px,
+                transparent 64px
+            ) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-radius: 14px !important;
+            width: 256px !important;
+            max-width: 256px !important;
+            height: 58px !important;
+            padding: 0 6px !important;
+            margin: 0 auto !important;
+            font-family: 'Outfit', 'Inter', monospace !important;
+            font-size: 1.6rem !important;
             font-weight: 700 !important;
             color: #FFFFFF !important;
-            height: 54px !important;
-            max-width: 260px !important;
-            margin: 0 auto !important;
-            padding: 0 16px !important;
+            letter-spacing: 42px !important;
+            text-indent: 20px !important;
+            text-align: left !important;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0, 0, 0, 0.3) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
             transition: all 0.25s ease !important;
-            font-family: var(--font-luxury), monospace !important;
         }
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] input:focus {
-            border-color: rgba(255, 255, 255, 0.5) !important;
-            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6), 0 0 15px rgba(59, 130, 246, 0.3) !important;
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] input:focus,
+        [data-testid="stTextInput"] input:focus {
+            border-color: rgba(255, 255, 255, 0.35) !important;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6), 0 0 15px rgba(59, 130, 246, 0.25) !important;
             outline: none !important;
         }
 
@@ -721,7 +733,7 @@ def inject_custom_theme() -> None:
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
             width: 100% !important;
-            max-width: 260px !important;
+            max-width: 256px !important;
             margin: 16px auto 0 auto !important;
             display: block !important;
             height: 46px !important;
@@ -750,7 +762,7 @@ def inject_custom_theme() -> None:
             font-size: 0.85rem;
             font-weight: 600;
             margin: 14px auto 0 auto;
-            max-width: 260px;
+            max-width: 256px;
             font-family: var(--font-luxury);
             text-align: center;
         }
