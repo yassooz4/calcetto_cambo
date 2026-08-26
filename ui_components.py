@@ -483,12 +483,28 @@ def inject_custom_theme() -> None:
            13. Responsive Media Queries & Mobile-First Column Stacking
            ---------------------------------------------------------------------- */
         @media (max-width: 768px) {
-            /* Layout Streamlit Columns Stacking */
-            [data-testid="stHorizontalBlock"]:not(:has(input[aria-label="d1"])) {
+            /* Schermata Login: su mobile espandi il container al 100% e nascondi colonne laterali vuote */
+            div[data-testid="stHorizontalBlock"]:has(#luxury-pin-marker) {
+                display: flex !important;
+                flex-direction: column !important;
+                width: 100% !important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(#luxury-pin-marker) > div[data-testid="column"]:empty {
+                display: none !important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(#luxury-pin-marker) > div[data-testid="column"] {
+                min-width: 100% !important;
+                width: 100% !important;
+                flex: 1 1 100% !important;
+                padding: 0 !important;
+            }
+
+            /* Layout Streamlit Columns Stacking generale (esclusi blocchi interni PIN) */
+            [data-testid="stHorizontalBlock"]:not(:has(input[aria-label^="d"])):not([data-testid="stForm"] [data-testid="stHorizontalBlock"]) {
                 flex-wrap: wrap !important;
                 gap: 12px !important;
             }
-            [data-testid="stHorizontalBlock"]:not(:has(input[aria-label="d1"])) > [data-testid="column"] {
+            [data-testid="stHorizontalBlock"]:not(:has(input[aria-label^="d"])):not([data-testid="stForm"] [data-testid="stHorizontalBlock"]) > [data-testid="column"] {
                 min-width: 100% !important;
                 flex: 1 1 100% !important;
                 width: 100% !important;
@@ -642,22 +658,30 @@ def inject_custom_theme() -> None:
             box-sizing: border-box !important;
         }
 
-        /* 2. Styling dei 4 Quadratini OTP Identici al Bottone Sblocca Accesso (Single-Target Pattern) */
+        /* 2. Layout & Styling dei 4 Quadratini OTP Glassmorphism (Mobile & Desktop) */
         [data-testid="stForm"] [data-testid="stHorizontalBlock"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) [data-testid="stHorizontalBlock"] {
-            max-width: 280px !important;
-            margin: 0 auto 12px auto !important;
-            gap: 12px !important;
+            max-width: 270px !important;
+            width: 100% !important;
+            margin: 0 auto 14px auto !important;
+            gap: 10px !important;
             display: flex !important;
+            flex-direction: row !important;
             justify-content: center !important;
+            align-items: center !important;
             flex-wrap: nowrap !important;
+            box-sizing: border-box !important;
         }
 
         [data-testid="stForm"] [data-testid="stHorizontalBlock"] > div[data-testid="column"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) [data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-            min-width: 0 !important;
-            flex: 1 1 0 !important;
-            width: auto !important;
+            min-width: 56px !important;
+            max-width: 56px !important;
+            width: 56px !important;
+            flex: 0 0 56px !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
 
         [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInput"],
@@ -673,41 +697,43 @@ def inject_custom_theme() -> None:
             display: none !important;
         }
 
-        /* 1. CONTAINER ESTERNO: Unico padrone del bordo iridescente e del vetro scuro */
+        /* 1. CONTAINER ESTERNO: Puro Dark Glassmorphism Satinato Trasparente */
         [data-testid="stForm"] div[data-testid="column"] div[data-baseweb="input"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"] {
-            border: 1.5px solid transparent !important;
-            background-image: 
-                linear-gradient(rgba(13, 17, 26, 0.92), rgba(13, 17, 26, 0.92)), 
-                conic-gradient(from 180deg at 50% 50%, #00F0FF 0deg, #3B82F6 70deg, #FFFFFF 140deg, #FFB800 200deg, #FF3B30 270deg, #00F0FF 360deg) !important;
-            background-origin: border-box !important;
-            background-clip: padding-box, border-box !important;
-            background-color: transparent !important;
+            background: rgba(255, 255, 255, 0.04) !important;
+            background-color: rgba(255, 255, 255, 0.04) !important;
+            background-image: none !important;
+            border: 1px solid rgba(255, 255, 255, 0.14) !important;
             border-radius: 14px !important;
-            height: 60px !important;
-            min-height: 60px !important;
+            height: 58px !important;
+            min-height: 58px !important;
+            width: 56px !important;
             backdrop-filter: blur(16px) !important;
             -webkit-backdrop-filter: blur(16px) !important;
             box-shadow: 
-                0 8px 20px -4px rgba(0, 0, 0, 0.7),
-                0 0 12px rgba(0, 240, 255, 0.25),
-                inset 0 1px 2px rgba(255, 255, 255, 0.25) !important;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                inset 0 2px 4px rgba(0, 0, 0, 0.4),
+                0 4px 12px rgba(0, 0, 0, 0.25) !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
             overflow: hidden !important;
             padding: 0 !important;
+            margin: 0 auto !important;
+            box-sizing: border-box !important;
         }
 
-        /* Glow al Focus / Digitazione */
+        /* Glow e Bagliore Satinato Neutro al Focus */
         [data-testid="stForm"] div[data-testid="column"] div[data-baseweb="input"]:focus-within,
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"]:focus-within {
+            border-color: rgba(255, 255, 255, 0.45) !important;
+            background: rgba(255, 255, 255, 0.08) !important;
+            background-color: rgba(255, 255, 255, 0.08) !important;
             box-shadow: 
-                0 10px 25px -4px rgba(0, 0, 0, 0.8),
-                0 0 20px rgba(0, 240, 255, 0.55),
-                inset 0 0 8px rgba(255, 255, 255, 0.35) !important;
+                0 0 16px rgba(255, 255, 255, 0.15),
+                inset 0 1px 2px rgba(255, 255, 255, 0.2),
+                0 6px 18px rgba(0, 0, 0, 0.45) !important;
             transform: translateY(-2px);
         }
 
-        /* 2. RESET TOTALE FIGLI INTERNI: Nessuno strato interno copre il gradiente o impone sfondi */
+        /* 2. RESET TOTALE FIGLI INTERNI: Trasparenza uniforme senza sfondi o bordi nativi */
         [data-testid="stForm"] div[data-testid="column"] div[data-baseweb="base-input"],
         [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInputRootElement"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="base-input"],
@@ -718,11 +744,12 @@ def inject_custom_theme() -> None:
             border: none !important;
             box-shadow: none !important;
             height: 100% !important;
+            width: 100% !important;
             padding: 0 !important;
             margin: 0 !important;
         }
 
-        /* 3. INPUT NATIVO: Trasparenza assoluta, dimensione calibrata 1.45rem e centratura perfetta */
+        /* 3. INPUT NATIVO: Dimensione 1.65rem, font-weight 700 e centratura perfetta */
         [data-testid="stForm"] div[data-testid="column"] input,
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] input,
         div[data-testid="column"] input[aria-label^="d"] {
@@ -733,20 +760,20 @@ def inject_custom_theme() -> None:
             outline: none !important;
             box-shadow: none !important;
             text-align: center !important;
-            font-size: 1.45rem !important;
+            font-size: 1.65rem !important;
             font-weight: 700 !important;
             color: #FFFFFF !important;
             padding: 0 !important;
             margin: 0 !important;
             height: 100% !important;
             width: 100% !important;
-            line-height: 60px !important;
+            line-height: 58px !important;
             display: flex !important;
             justify-content: center !important;
             align-items: center !important;
             text-indent: 0 !important;
             letter-spacing: 0 !important;
-            caret-color: #00F0FF !important;
+            caret-color: #FFFFFF !important;
             font-family: var(--font-luxury), 'Outfit', sans-serif !important;
         }
 
