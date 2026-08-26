@@ -566,59 +566,39 @@ def inject_custom_theme() -> None:
             box-sizing: border-box;
         }
         
-        /* 1. Pure CSS 3D Luxury Shield */
-        .luxury-shield-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-            margin: 0 auto 16px auto;
+        /* 1. UEFA Champions League Starball 3D Glow Header */
+        .starball-glow-container {
             width: 120px;
-            height: 130px;
+            height: 120px;
+            margin: 0 auto 14px auto;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, rgba(15, 23, 42, 0) 70%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.75);
+            position: relative;
         }
-        .luxury-shield-glow {
+        .starball-glow-container::before {
+            content: '';
             position: absolute;
             width: 130px;
             height: 130px;
-            background: radial-gradient(circle, rgba(59, 130, 246, 0.32) 0%, rgba(59, 130, 246, 0) 70%);
             border-radius: 50%;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.22) 0%, transparent 70%);
             pointer-events: none;
             z-index: 1;
         }
-        .luxury-shield-3d {
-            width: 95px;
-            height: 115px;
-            background: linear-gradient(180deg, #242D40 0%, #121724 60%, #090C14 100%);
-            clip-path: polygon(50% 0%, 100% 12%, 100% 72%, 50% 100%, 0% 72%, 0% 12%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .starball-svg {
+            width: 105px;
+            height: 105px;
             position: relative;
             z-index: 2;
-            box-shadow: 0 16px 35px rgba(0, 0, 0, 0.85);
-            border-top: 2px solid rgba(255, 255, 255, 0.4);
-            filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.85));
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            filter: drop-shadow(0 0 16px rgba(255, 255, 255, 0.45)) drop-shadow(0 10px 20px rgba(0, 0, 0, 0.9));
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .luxury-shield-3d:hover {
-            transform: translateY(-2px) scale(1.03);
-        }
-        .luxury-shield-inner {
-            width: 83px;
-            height: 103px;
-            background: linear-gradient(180deg, #182030 0%, #0D111A 100%);
-            clip-path: polygon(50% 0%, 100% 12%, 100% 72%, 50% 100%, 0% 72%, 0% 12%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-top: 1px solid rgba(255, 255, 255, 0.25);
-            box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.1);
-        }
-        .luxury-shield-icon {
-            font-size: 2.3rem;
-            filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.8));
-            line-height: 1;
-            user-select: none;
+        .starball-svg:hover {
+            transform: scale(1.05) rotate(4deg);
         }
 
         .luxury-login-title {
@@ -1506,19 +1486,66 @@ def render_luxury_pin_header(
     subtitle: str = "Inserisci il codice PIN di accesso a 4 cifre<br>per sbloccare statistiche e formazioni"
 ) -> None:
     """
-    Renderizza l'header grafico di autenticazione in stile Matte Dark Neumorphism / Luxury Dark UI.
-    Include il maestoso scudetto 3D satinato in puro CSS con riflesso superiore, luce blu e stella dorata,
-    seguito dal titolo e dal sottotitolo.
+    Renderizza l'header grafico di autenticazione in stile Aesthetic Luxury Dark UI.
+    Include l'iconico pallone UEFA Champions League Starball 3D con stelle in platino satinato
+    e alone luminoso blu notte, seguito dal titolo e dal sottotitolo.
     """
+    starball_svg = """
+    <svg class="starball-svg" width="105" height="105" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="clSphereGrad" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stop-color="#243048" />
+          <stop offset="35%" stop-color="#121A28" />
+          <stop offset="75%" stop-color="#080D16" />
+          <stop offset="100%" stop-color="#03050A" />
+        </radialGradient>
+        <linearGradient id="clStarPlat" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#FFFFFF" />
+          <stop offset="45%" stop-color="#F8FAFC" />
+          <stop offset="80%" stop-color="#CBD5E1" />
+          <stop offset="100%" stop-color="#94A3B8" />
+        </linearGradient>
+        <radialGradient id="clSphereRim" cx="50%" cy="50%" r="50%">
+          <stop offset="86%" stop-color="transparent" />
+          <stop offset="100%" stop-color="rgba(0,0,0,0.85)" />
+        </radialGradient>
+        <linearGradient id="clSpecGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.5" />
+          <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <!-- Sfera Base Scuro Satinato -->
+      <circle cx="60" cy="60" r="54" fill="url(#clSphereGrad)" stroke="rgba(255, 255, 255, 0.16)" stroke-width="1.5" />
+      <!-- Stelle UEFA Champions League Intrecciate -->
+      <g fill="url(#clStarPlat)" stroke="#060A12" stroke-width="0.8" stroke-linejoin="round">
+        <!-- Stella Centrale -->
+        <polygon points="60,33 66,47 81,47 69,56 73,71 60,62 47,71 51,56 39,47 54,47" />
+        <!-- Stella Nord -->
+        <polygon points="60,8 65,20 78,17 71,28 80,37 67,34 60,44 53,34 40,37 49,28 42,17 55,20" />
+        <!-- Stella Nord-Est -->
+        <polygon points="98,24 96,36 108,41 97,49 101,61 89,53 81,61 80,48 68,44 79,37" />
+        <!-- Stella Sud-Est -->
+        <polygon points="104,72 92,72 87,83 83,72 71,76 78,65 73,54 84,57 91,48 93,60" />
+        <!-- Stella Sud -->
+        <polygon points="60,112 55,100 42,103 49,92 40,83 53,86 60,76 67,86 80,83 71,92 78,103 65,100" />
+        <!-- Stella Sud-Ovest -->
+        <polygon points="16,96 28,96 33,85 37,96 49,92 42,103 47,114 36,111 29,120 27,108" />
+        <!-- Stella Ovest -->
+        <polygon points="22,48 34,48 39,37 43,48 55,44 48,55 53,66 42,63 35,72 33,60" />
+        <!-- Stella Nord-Ovest -->
+        <polygon points="22,24 34,32 34,44 23,40 12,48 15,36 6,28 18,28 22,16 26,28" />
+      </g>
+      <!-- Bordo / Ombreggiatura Sferica -->
+      <circle cx="60" cy="60" r="54" fill="url(#clSphereRim)" />
+      <!-- Riflesso Superiore 3D -->
+      <path d="M 28 34 A 46 46 0 0 1 92 34" stroke="url(#clSpecGlow)" stroke-width="2" stroke-linecap="round" fill="none" />
+    </svg>
+    """
+
     header_html = f"""
     <div id="luxury-pin-marker"></div>
-    <div class="luxury-shield-container">
-        <div class="luxury-shield-glow"></div>
-        <div class="luxury-shield-3d">
-            <div class="luxury-shield-inner">
-                <span class="luxury-shield-icon">⭐</span>
-            </div>
-        </div>
+    <div class="starball-glow-container">
+        {starball_svg}
     </div>
     <h2 class="luxury-login-title">{title}</h2>
     <p class="luxury-login-subtitle">{subtitle}</p>
