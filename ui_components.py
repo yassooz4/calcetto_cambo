@@ -41,10 +41,14 @@ def inject_custom_theme() -> None:
     Inietta il Design System globale in stile Dark Modern Stadium & Glassmorphism.
     Garantisce:
     1. Risoluzione dei ligatures/glifi Google Material Icons (Sidebar arrow fix).
-    2. Ottimizzazione Mobile-First e media queries per smartphone (< 768px).
-    3. Scroll orizzontale nativo per tabelle e dataframe.
-    4. Adattamento fluido di tutti i componenti grafici.
+    2. Sfondo a tutto schermo con immagine UEFA Champions League e overlay Dark Glassmorphism.
+    3. Ottimizzazione Mobile-First e media queries per smartphone (< 768px).
+    4. Scroll orizzontale nativo per tabelle e dataframe.
+    5. Adattamento fluido di tutti i componenti grafici.
     """
+    bg_uri = get_ucl_background_base64()
+    bg_css_rule = f", url('{bg_uri}')" if bg_uri else ""
+
     theme_css = """
     <style>
         /* ----------------------------------------------------------------------
@@ -55,8 +59,20 @@ def inject_custom_theme() -> None:
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
         /* ----------------------------------------------------------------------
-           2. Root Variables
+           2. Sfondo Champions League Globale & Root Variables
            ---------------------------------------------------------------------- */
+        [data-testid="stAppViewContainer"], .stApp {
+            background: linear-gradient(180deg, rgba(8, 12, 22, 0.85) 0%, rgba(5, 8, 15, 0.94) 100%)__UCL_BG_RULE__ !important;
+            background-size: cover !important;
+            background-position: center !important;
+            background-attachment: fixed !important;
+            background-repeat: no-repeat !important;
+        }
+
+        [data-testid="stHeader"] {
+            background: transparent !important;
+        }
+
         :root {
             --bg-dark-core: #0B0E14;
             --bg-stadium-card: rgba(18, 24, 36, 0.85);
@@ -1021,7 +1037,7 @@ def inject_custom_theme() -> None:
         }
     </style>
     """
-    render_html(theme_css)
+    render_html(theme_css.replace("__UCL_BG_RULE__", bg_css_rule))
 
 
 # ==============================================================================
@@ -1713,6 +1729,29 @@ def render_champions_scoreboard(
 # 6. SCHERMATA LOGIN & PASSCODE: IOS LOCKSCREEN KEYPAD (APPLE PASSCODE UI)
 # ==============================================================================
 _STARBALL_BASE64_CACHE: Optional[str] = None
+_UCL_BG_BASE64_CACHE: Optional[str] = None
+
+
+def get_ucl_background_base64() -> str:
+    """
+    Recupera l'immagine di sfondo UEFA Champions League (ucl_bg.*) e la codifica in Data URI Base64.
+    Utilizza una cache in memoria per evitare letture disco ripetute.
+    """
+    global _UCL_BG_BASE64_CACHE
+    if _UCL_BG_BASE64_CACHE is not None:
+        return _UCL_BG_BASE64_CACHE
+
+    for ext in ["png", "jpg", "jpeg", "webp"]:
+        p = Path(__file__).parent / f"assets/ucl_bg.{ext}"
+        if p.exists():
+            with open(p, "rb") as f:
+                mime_type = "jpeg" if ext == "jpg" else ext
+                _UCL_BG_BASE64_CACHE = f"data:image/{mime_type};base64,{base64.b64encode(f.read()).decode()}"
+                return _UCL_BG_BASE64_CACHE
+    
+    _UCL_BG_BASE64_CACHE = ""
+    return _UCL_BG_BASE64_CACHE
+
 
 def get_starball_base64() -> str:
     """
@@ -1779,6 +1818,7 @@ def render_ios_pin_keypad(
     viewer_pin: str = "5678",
     title: str = "Inserisci il codice PIN",
     subtitle: str = "4 digit code per sbloccare l'applicazione",
+    storage_source: str = "Google Sheets (Cloud)",
     key: str = "ios_lockscreen_keypad"
 ) -> Optional[str]:
     """
@@ -1790,8 +1830,9 @@ def render_ios_pin_keypad(
     3. 4 Cerchietti Indicatori con animazione di riempimento al tap e Shake Effect in caso di errore.
     4. Tastierino circolare 3x4 in Dark Glassmorphism con lettere subordinate Apple (2 ABC, 3 DEF...).
     5. Tasto dinamico Cancella / Indietro (⌫).
-    6. Supporto Touch mobile 100% (nessuna tastiera a comparsa), click desktop e tastiera fisica PC.
-    7. Validazione istantanea alla 4ª cifra con invio a Streamlit.
+    6. Indicatore di persistenza discreto integrato nel footer della card.
+    7. Supporto Touch mobile 100% (nessuna tastiera a comparsa), click desktop e tastiera fisica PC.
+    8. Validazione istantanea alla 4ª cifra con invio a Streamlit.
     """
     starball_src = get_starball_base64()
     
@@ -1801,6 +1842,7 @@ def render_ios_pin_keypad(
         title=title,
         subtitle=subtitle,
         starball_src=starball_src,
+        storage_source=storage_source,
         default="",
         key=key
     )
@@ -1825,13 +1867,8 @@ def render_luxury_pin_header(
 
 
 def render_luxury_pin_footer() -> None:
-    """Footer di compatibilità legacy."""
-    footer_html = """
-    <div class="luxury-help-text">
-        Problemi di accesso? <span>Contatta l'Amministratore</span>
-    </div>
-    """
-    render_html(footer_html)
+    """Footer di compatibilità legacy vuoto (non visualizza messaggi di supporto)."""
+    pass
 
 
 def render_luxury_pin_error(message: str = "Passcode non valido") -> None:

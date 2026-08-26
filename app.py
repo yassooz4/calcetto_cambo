@@ -40,11 +40,15 @@ PIN_ADMIN = "8765"
 
 def render_pin_gate():
     """Mostra la schermata di login con verifica PIN interattiva in stile Apple iOS Lockscreen Keypad."""
+    # Recupero stato persistenza per indicatore card e diagnostica
+    _, _, _, _, storage_source, storage_error = storage.load_data()
+
     entered_pin = ui_components.render_ios_pin_keypad(
         admin_pin=PIN_ADMIN,
         viewer_pin=PIN_VIEWER,
         title="Inserisci il codice PIN",
-        subtitle="4 digit code per sbloccare l'applicazione"
+        subtitle="4 digit code per sbloccare l'applicazione",
+        storage_source=storage_source
     )
     
     if entered_pin:
@@ -57,11 +61,7 @@ def render_pin_gate():
             st.session_state["user_role"] = "viewer"
             st.rerun()
 
-    # Footer informativo e diagnostica rapida stato storage
-    _, _, _, _, storage_source, storage_error = storage.load_data()
-    ui_components.render_html(
-        f"<div style='text-align: center; font-size: 0.78rem; color: #475569; margin-top: 1rem; font-family: var(--font-luxury);'>Persistenza: <b style='color: #64748b;'>{storage_source}</b></div>"
-    )
+    # Diagnostica di connessione Google Sheets (solo in caso di fallback o errore)
     if storage_error and storage_source != "Google Sheets (Cloud)":
         with st.expander("⚠️ Diagnostica Connessione Google Sheets", expanded=False):
             st.warning(f"**Dettaglio Fallback:**\n\n{storage_error}")
