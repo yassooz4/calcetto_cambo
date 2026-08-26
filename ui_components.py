@@ -499,7 +499,7 @@ def inject_custom_theme() -> None:
                 padding: 0 !important;
             }
 
-            /* Container 4 slot PIN su mobile: assolutamente in riga senza mai andare a capo (zero wrap) */
+            /* Container 4 slot PIN su mobile: assolutamente in riga senza mai andare a capo (zero wrap, ingombro < 200px) */
             [data-testid="stForm"] [data-testid="stHorizontalBlock"],
             div[data-testid="stForm"]:has(#luxury-pin-marker) [data-testid="stHorizontalBlock"],
             div[data-testid="stHorizontalBlock"]:has(input[aria-label="d1"]),
@@ -509,13 +509,14 @@ def inject_custom_theme() -> None:
                 flex-wrap: nowrap !important;
                 justify-content: center !important;
                 align-items: center !important;
-                gap: 8px !important;
+                gap: 6px !important;
                 width: 100% !important;
-                max-width: 260px !important;
+                max-width: 210px !important;
                 margin: 0 auto 16px auto !important;
+                box-sizing: border-box !important;
             }
 
-            /* Sovrascrivi il calc(50%) forzato da Streamlit Mobile su ciascuna colonna */
+            /* Sovrascrivi il calc(50%) forzato da Streamlit Mobile: slot compatti a 44px */
             [data-testid="stForm"] [data-testid="stHorizontalBlock"] > div[data-testid="column"],
             div[data-testid="stForm"]:has(#luxury-pin-marker) [data-testid="stHorizontalBlock"] > div[data-testid="column"],
             div[data-testid="stHorizontalBlock"]:has(input[aria-label="d1"]) > div[data-testid="column"],
@@ -523,23 +524,50 @@ def inject_custom_theme() -> None:
             [data-testid="stForm"] div[data-testid="column"],
             div[data-testid="column"]:has(input[aria-label="d1"]),
             div[data-testid="column"]:has(input[aria-label^="d"]) {
-                width: 52px !important;
-                min-width: 52px !important;
-                max-width: 52px !important;
-                flex: 0 0 52px !important;
-                flex-basis: 52px !important;
+                width: 44px !important;
+                min-width: 0 !important;
+                max-width: 44px !important;
+                height: 44px !important;
+                flex: 0 0 44px !important;
+                flex-basis: 44px !important;
                 flex-grow: 0 !important;
                 flex-shrink: 0 !important;
                 margin: 0 !important;
                 padding: 0 !important;
+                box-sizing: border-box !important;
+            }
+
+            /* Dimensioni 44px su mobile per input e wrapper */
+            [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInput"],
+            [data-testid="stForm"] div[data-testid="column"] [data-baseweb="input"],
+            div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] [data-baseweb="input"],
+            div[data-testid="column"]:has(input[aria-label^="d"]) [data-baseweb="input"] {
+                width: 44px !important;
+                min-width: 0 !important;
+                max-width: 44px !important;
+                height: 44px !important;
+                min-height: 44px !important;
+                max-height: 44px !important;
+                border-radius: 11px !important;
+            }
+
+            [data-testid="stForm"] div[data-testid="column"] input,
+            div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] input,
+            div[data-testid="column"]:has(input[aria-label^="d"]) input {
+                height: 44px !important;
+                min-height: 44px !important;
+                max-height: 44px !important;
+                width: 44px !important;
+                line-height: 44px !important;
+                font-size: 1.65rem !important;
             }
 
             /* Layout Streamlit Columns Stacking generale (esclusi blocchi interni PIN) */
-            [data-testid="stHorizontalBlock"]:not(:has(input[aria-label^="d"])):not([data-testid="stForm"] [data-testid="stHorizontalBlock"]) {
+            div:not([data-testid="stForm"]) > [data-testid="stHorizontalBlock"]:not(:has(input[aria-label^="d"])) {
                 flex-wrap: wrap !important;
                 gap: 12px !important;
             }
-            [data-testid="stHorizontalBlock"]:not(:has(input[aria-label^="d"])):not([data-testid="stForm"] [data-testid="stHorizontalBlock"]) > [data-testid="column"] {
+            div:not([data-testid="stForm"]) > [data-testid="stHorizontalBlock"]:not(:has(input[aria-label^="d"])) > [data-testid="column"] {
                 min-width: 100% !important;
                 flex: 1 1 100% !important;
                 width: 100% !important;
@@ -684,8 +712,9 @@ def inject_custom_theme() -> None:
             border-radius: 28px !important;
             border: 1px solid rgba(255, 255, 255, 0.09) !important;
             box-shadow: 0 30px 70px -10px rgba(0, 0, 0, 0.9), 0 0 40px rgba(37, 99, 235, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.12) !important;
-            padding: clamp(28px, 6vw, 38px) clamp(20px, 5vw, 30px) clamp(24px, 5vw, 30px) clamp(20px, 5vw, 30px) !important;
-            max-width: 420px !important;
+            padding: clamp(24px, 5vw, 36px) clamp(16px, 4vw, 28px) clamp(20px, 4vw, 28px) clamp(16px, 4vw, 28px) !important;
+            max-width: 400px !important;
+            width: calc(100% - 24px) !important;
             margin: 1.5rem auto !important;
             position: relative !important;
             overflow: hidden !important;
@@ -693,7 +722,42 @@ def inject_custom_theme() -> None:
             box-sizing: border-box !important;
         }
 
-        /* 2. Layout & Styling dei 4 Quadratini OTP Glassmorphism (Mobile & Desktop) */
+        /* 1. Neutralizzazione totale di testi parassiti, contatori ("0/1") e istruzioni di sottomissione */
+        [data-testid="stForm"] div[data-testid="column"] [data-testid="stInputInstructions"],
+        [data-testid="stForm"] div[data-testid="column"] [data-testid="InputInstructions"],
+        [data-testid="stForm"] div[data-testid="column"] [data-testid="stInputInstruction"],
+        [data-testid="stForm"] div[data-testid="column"] [data-testid="stCaptionContainer"],
+        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInput"] label,
+        [data-testid="stForm"] div[data-testid="column"] label,
+        [data-testid="stForm"] div[data-testid="column"] small,
+        [data-testid="stForm"] div[data-testid="column"] caption,
+        [data-testid="stForm"] div[data-testid="column"] span:not([data-baseweb]),
+        div[data-testid="column"]:has(input[aria-label="d1"]) [data-testid="stInputInstructions"],
+        div[data-testid="column"]:has(input[aria-label^="d"]) [data-testid="stInputInstructions"],
+        div[data-testid="column"]:has(input[aria-label^="d"]) [data-testid="InputInstructions"],
+        div[data-testid="column"]:has(input[aria-label^="d"]) [data-testid="stInputInstruction"],
+        div[data-testid="column"]:has(input[aria-label^="d"]) small,
+        div[data-testid="column"]:has(input[aria-label^="d"]) label {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            max-height: 0 !important;
+            width: 0 !important;
+            min-width: 0 !important;
+            max-width: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            overflow: hidden !important;
+            position: absolute !important;
+            pointer-events: none !important;
+            font-size: 0 !important;
+            line-height: 0 !important;
+            opacity: 0 !important;
+        }
+
+        /* 2. Layout & Styling dei 4 Quadratini OTP Glassmorphism (Desktop Default: 48px, gap 8px) */
         [data-testid="stForm"] [data-testid="stHorizontalBlock"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) [data-testid="stHorizontalBlock"],
         div[data-testid="stHorizontalBlock"]:has(input[aria-label="d1"]),
@@ -705,12 +769,12 @@ def inject_custom_theme() -> None:
             align-items: center !important;
             gap: 8px !important;
             width: 100% !important;
-            max-width: 260px !important;
+            max-width: 240px !important;
             margin: 0 auto 16px auto !important;
             box-sizing: border-box !important;
         }
 
-        /* Sovrascrivi il calc(50%) forzato da Streamlit Mobile su ciascuna colonna */
+        /* Colonne PIN: fisse a 48px su desktop con min-width: 0 per sbloccare il box model */
         [data-testid="stForm"] [data-testid="stHorizontalBlock"] > div[data-testid="column"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) [data-testid="stHorizontalBlock"] > div[data-testid="column"],
         div[data-testid="stHorizontalBlock"]:has(input[aria-label="d1"]) > div[data-testid="column"],
@@ -718,12 +782,12 @@ def inject_custom_theme() -> None:
         [data-testid="stForm"] div[data-testid="column"],
         div[data-testid="column"]:has(input[aria-label="d1"]),
         div[data-testid="column"]:has(input[aria-label^="d"]) {
-            width: 52px !important;
-            min-width: 52px !important;
-            max-width: 52px !important;
-            height: 52px !important;
-            flex: 0 0 52px !important;
-            flex-basis: 52px !important;
+            width: 48px !important;
+            min-width: 0 !important;
+            max-width: 48px !important;
+            height: 48px !important;
+            flex: 0 0 48px !important;
+            flex-basis: 48px !important;
             flex-grow: 0 !important;
             flex-shrink: 0 !important;
             box-sizing: border-box !important;
@@ -733,37 +797,29 @@ def inject_custom_theme() -> None:
 
         [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInput"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInput"],
-        div[data-testid="column"]:has(input[aria-label^="d"]) div[data-testid="stTextInput"] {
-            width: 52px !important;
-            max-width: 52px !important;
-            height: 52px !important;
+        div[data-testid="column"]:has(input[aria-label^="d"]) div[data-testid="stTextInput"],
+        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInputRootElement"],
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInputRootElement"],
+        div[data-testid="column"]:has(input[aria-label^="d"]) div[data-testid="stTextInputRootElement"] {
+            width: 48px !important;
+            min-width: 0 !important;
+            max-width: 48px !important;
+            height: 48px !important;
             margin: 0 auto !important;
             padding: 0 !important;
             box-sizing: border-box !important;
         }
 
-        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInput"] label,
-        [data-testid="stForm"] div[data-testid="column"] label,
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInput"] label,
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] label,
-        div[data-testid="column"]:has(input[aria-label^="d"]) label {
-            display: none !important;
-            visibility: hidden !important;
-            height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        /* 1. CONTAINER ESTERNO: Puro Dark Glassmorphism Satinato Trasparente (52x52px) */
+        /* Contenitore di input: Dark Frosted Glassmorphism satinato (48x48px default) */
         [data-testid="stForm"] div[data-testid="column"] [data-baseweb="input"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] [data-baseweb="input"],
         div[data-testid="column"]:has(input[aria-label^="d"]) [data-baseweb="input"] {
-            width: 52px !important;
-            min-width: 52px !important;
-            max-width: 52px !important;
-            height: 52px !important;
-            min-height: 52px !important;
-            max-height: 52px !important;
+            width: 48px !important;
+            min-width: 0 !important;
+            max-width: 48px !important;
+            height: 48px !important;
+            min-height: 48px !important;
+            max-height: 48px !important;
             border-radius: 12px !important;
             background: rgba(255, 255, 255, 0.04) !important;
             background-color: rgba(255, 255, 255, 0.04) !important;
@@ -798,13 +854,10 @@ def inject_custom_theme() -> None:
             transform: translateY(-2px);
         }
 
-        /* 2. RESET TOTALE FIGLI INTERNI: Trasparenza uniforme senza sfondi o bordi nativi */
+        /* Reset totale figli interni per trasparenza uniforme */
         [data-testid="stForm"] div[data-testid="column"] [data-baseweb="base-input"],
-        [data-testid="stForm"] div[data-testid="column"] div[data-testid="stTextInputRootElement"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] [data-baseweb="base-input"],
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInputRootElement"],
-        div[data-testid="column"]:has(input[aria-label^="d"]) [data-baseweb="base-input"],
-        div[data-testid="column"]:has(input[aria-label^="d"]) div[data-testid="stTextInputRootElement"] {
+        div[data-testid="column"]:has(input[aria-label^="d"]) [data-baseweb="base-input"] {
             background: transparent !important;
             background-color: transparent !important;
             background-image: none !important;
@@ -819,7 +872,7 @@ def inject_custom_theme() -> None:
             align-items: center !important;
         }
 
-        /* 3. INPUT NATIVO: Centratura assoluta e ingrandimento testo a 1.75rem */
+        /* 3. INPUT NATIVO: Centratura geometrica assoluta e calibrazione cifre a 1.75rem (font-weight 800) */
         [data-testid="stForm"] div[data-testid="column"] input,
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] input,
         div[data-testid="column"]:has(input[aria-label^="d"]) input {
@@ -827,11 +880,11 @@ def inject_custom_theme() -> None:
             font-size: 1.75rem !important;
             font-weight: 800 !important;
             color: #FFFFFF !important;
-            height: 52px !important;
-            min-height: 52px !important;
-            max-height: 52px !important;
-            width: 52px !important;
-            line-height: 52px !important;
+            height: 48px !important;
+            min-height: 48px !important;
+            max-height: 48px !important;
+            width: 48px !important;
+            line-height: 48px !important;
             padding: 0 !important;
             padding-left: 0 !important;
             padding-right: 0 !important;
