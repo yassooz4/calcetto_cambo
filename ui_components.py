@@ -6,6 +6,7 @@ Componenti: Theme Injection, FUT Card, Plotly Radar Chart, 2D Pitch, Scoreboard
 ================================================================================
 """
 
+import base64
 import json
 import textwrap
 from typing import Dict, List, Any, Optional, Tuple
@@ -570,13 +571,13 @@ def inject_custom_theme() -> None:
         .starball-glow-container {
             width: 120px;
             height: 120px;
-            margin: 0 auto 14px auto;
-            background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, rgba(15, 23, 42, 0) 70%);
+            margin: 0 auto 12px auto;
+            background: radial-gradient(circle, rgba(0, 240, 255, 0.22) 0%, rgba(59, 130, 246, 0.25) 35%, rgba(15, 23, 42, 0) 70%);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.75);
+            box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.8);
             position: relative;
         }
         .starball-glow-container::before {
@@ -585,20 +586,21 @@ def inject_custom_theme() -> None:
             width: 130px;
             height: 130px;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(59, 130, 246, 0.22) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(0, 240, 255, 0.15) 0%, transparent 70%);
             pointer-events: none;
             z-index: 1;
         }
-        .starball-svg {
-            width: 105px;
-            height: 105px;
+        .starball-img {
+            width: 110px;
+            height: 110px;
+            object-fit: contain;
             position: relative;
             z-index: 2;
-            filter: drop-shadow(0 0 16px rgba(255, 255, 255, 0.45)) drop-shadow(0 10px 20px rgba(0, 0, 0, 0.9));
+            filter: drop-shadow(0 0 18px rgba(0, 240, 255, 0.45)) drop-shadow(0 10px 22px rgba(0, 0, 0, 0.95));
             transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .starball-svg:hover {
-            transform: scale(1.05) rotate(4deg);
+        .starball-img:hover {
+            transform: scale(1.06) rotate(5deg);
         }
 
         .luxury-login-title {
@@ -636,7 +638,7 @@ def inject_custom_theme() -> None:
             box-sizing: border-box !important;
         }
 
-        /* 2. Styling dei 4 Quadratini in Vetro OTP con Mascheramento a Pallini */
+        /* 2. Styling dei 4 Quadratini in Vetro Iridescente (Holographic / Chromatic Glow) */
         div[data-testid="stForm"]:has(#luxury-pin-marker) [data-testid="stHorizontalBlock"] {
             max-width: 280px !important;
             margin: 0 auto 10px auto !important;
@@ -662,20 +664,35 @@ def inject_custom_theme() -> None:
         }
 
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"] {
-            background: rgba(255, 255, 255, 0.03) !important;
-            border: 1.5px solid rgba(255, 255, 255, 0.1) !important;
-            border-radius: 14px !important;
+            border: 1.5px solid transparent !important;
+            background-image: 
+                linear-gradient(rgba(13, 17, 26, 0.88), rgba(13, 17, 26, 0.88)), 
+                conic-gradient(from 180deg at 50% 50%, #00F0FF 0deg, #3B82F6 70deg, #FFFFFF 140deg, #FFB800 200deg, #FF3B30 270deg, #00F0FF 360deg) !important;
+            background-origin: border-box !important;
+            background-clip: padding-box, border-box !important;
+            border-radius: 16px !important;
             height: 58px !important;
-            backdrop-filter: blur(12px) !important;
-            -webkit-backdrop-filter: blur(12px) !important;
-            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6), 0 6px 16px rgba(0, 0, 0, 0.3) !important;
-            transition: all 0.2s ease !important;
+            backdrop-filter: blur(16px) !important;
+            -webkit-backdrop-filter: blur(16px) !important;
+            box-shadow: 
+                0 10px 25px -5px rgba(0, 0, 0, 0.7),
+                0 0 15px rgba(0, 240, 255, 0.25),
+                inset 0 1px 2px rgba(255, 255, 255, 0.3) !important;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
             padding: 0 !important;
         }
 
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"]:focus-within {
-            border-color: rgba(255, 255, 255, 0.55) !important;
-            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6), 0 0 16px rgba(59, 130, 246, 0.3) !important;
+            border: 1.5px solid transparent !important;
+            background-image: 
+                linear-gradient(rgba(18, 24, 38, 0.92), rgba(18, 24, 38, 0.92)), 
+                conic-gradient(from 200deg at 50% 50%, #00F0FF 0deg, #60A5FA 70deg, #FFFFFF 140deg, #FCD34D 200deg, #F87171 270deg, #00F0FF 360deg) !important;
+            background-origin: border-box !important;
+            background-clip: padding-box, border-box !important;
+            box-shadow: 
+                0 12px 28px -5px rgba(0, 0, 0, 0.8),
+                0 0 22px rgba(0, 240, 255, 0.55),
+                inset 0 0 10px rgba(255, 255, 255, 0.35) !important;
         }
 
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"] input,
@@ -703,33 +720,44 @@ def inject_custom_theme() -> None:
             visibility: hidden !important;
         }
 
-        /* Sleek Button in Pin Gate */
+        /* 3. Pulsante Sblocca Accesso con Bordo Prisma Iridescente */
         div[data-testid="stForm"]:has(#luxury-pin-marker) button[kind="secondaryFormSubmit"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) button[kind="primaryFormSubmit"],
         div[data-testid="stForm"]:has(#luxury-pin-marker) button {
-            background: #1C2333 !important;
-            color: #F8FAFC !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            border-radius: 14px !important;
+            border: 1.5px solid transparent !important;
+            background-image: 
+                linear-gradient(rgba(18, 24, 38, 0.92), rgba(10, 14, 22, 0.92)), 
+                conic-gradient(from 180deg at 50% 50%, #00F0FF 0deg, #3B82F6 70deg, #FFFFFF 140deg, #FFB800 200deg, #FF3B30 270deg, #00F0FF 360deg) !important;
+            background-origin: border-box !important;
+            background-clip: padding-box, border-box !important;
+            border-radius: 16px !important;
+            color: #FFFFFF !important;
             padding: 10px 20px !important;
-            font-size: 0.92rem !important;
+            font-size: 0.95rem !important;
             font-weight: 700 !important;
             font-family: var(--font-luxury) !important;
-            letter-spacing: 0.4px !important;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            letter-spacing: 0.5px !important;
+            box-shadow: 
+                0 12px 28px -5px rgba(0, 0, 0, 0.75),
+                0 0 18px rgba(0, 240, 255, 0.25),
+                inset 0 1px 2px rgba(255, 255, 255, 0.35) !important;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
             width: 100% !important;
             max-width: 280px !important;
-            margin: 16px auto 0 auto !important;
+            margin: 18px auto 0 auto !important;
             display: block !important;
-            height: 46px !important;
+            height: 48px !important;
+            cursor: pointer !important;
         }
         div[data-testid="stForm"]:has(#luxury-pin-marker) button:hover {
-            background: #253148 !important;
-            border-color: rgba(59, 130, 246, 0.5) !important;
-            color: #FFFFFF !important;
+            background-image: 
+                linear-gradient(rgba(24, 32, 50, 0.95), rgba(14, 20, 32, 0.95)), 
+                conic-gradient(from 220deg at 50% 50%, #00F0FF 0deg, #60A5FA 70deg, #FFFFFF 140deg, #FCD34D 200deg, #F87171 270deg, #00F0FF 360deg) !important;
             transform: translateY(-2px) !important;
-            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.25) !important;
+            box-shadow: 
+                0 16px 35px -5px rgba(0, 0, 0, 0.85),
+                0 0 25px rgba(0, 240, 255, 0.5),
+                inset 0 1px 2px rgba(255, 255, 255, 0.5) !important;
         }
         div[data-testid="stForm"]:has(#luxury-pin-marker) button:active {
             transform: translateY(0px) !important;
@@ -1486,66 +1514,54 @@ def render_luxury_pin_header(
     subtitle: str = "Inserisci il codice PIN di accesso a 4 cifre<br>per sbloccare statistiche e formazioni"
 ) -> None:
     """
-    Renderizza l'header grafico di autenticazione in stile Aesthetic Luxury Dark UI.
-    Include l'iconico pallone UEFA Champions League Starball 3D con stelle in platino satinato
-    e alone luminoso blu notte, seguito dal titolo e dal sottotitolo.
+    Renderizza l'header grafico di autenticazione in stile Holographic Iridescent Fluted Glass.
+    Include l'iconico pallone UEFA Champions League Starball 3D codificato in Base64 Data URI
+    (garantito al 100% contro qualsiasi sanitizzazione di Streamlit), seguito dal titolo e dal sottotitolo.
     """
-    starball_svg = """
-    <svg class="starball-svg" width="105" height="105" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <radialGradient id="clSphereGrad" cx="35%" cy="30%" r="70%">
-          <stop offset="0%" stop-color="#243048" />
-          <stop offset="35%" stop-color="#121A28" />
-          <stop offset="75%" stop-color="#080D16" />
-          <stop offset="100%" stop-color="#03050A" />
-        </radialGradient>
-        <linearGradient id="clStarPlat" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#FFFFFF" />
-          <stop offset="45%" stop-color="#F8FAFC" />
-          <stop offset="80%" stop-color="#CBD5E1" />
-          <stop offset="100%" stop-color="#94A3B8" />
-        </linearGradient>
-        <radialGradient id="clSphereRim" cx="50%" cy="50%" r="50%">
-          <stop offset="86%" stop-color="transparent" />
-          <stop offset="100%" stop-color="rgba(0,0,0,0.85)" />
-        </radialGradient>
-        <linearGradient id="clSpecGlow" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.5" />
-          <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
-        </linearGradient>
-      </defs>
-      <!-- Sfera Base Scuro Satinato -->
-      <circle cx="60" cy="60" r="54" fill="url(#clSphereGrad)" stroke="rgba(255, 255, 255, 0.16)" stroke-width="1.5" />
-      <!-- Stelle UEFA Champions League Intrecciate -->
-      <g fill="url(#clStarPlat)" stroke="#060A12" stroke-width="0.8" stroke-linejoin="round">
-        <!-- Stella Centrale -->
-        <polygon points="60,33 66,47 81,47 69,56 73,71 60,62 47,71 51,56 39,47 54,47" />
-        <!-- Stella Nord -->
-        <polygon points="60,8 65,20 78,17 71,28 80,37 67,34 60,44 53,34 40,37 49,28 42,17 55,20" />
-        <!-- Stella Nord-Est -->
-        <polygon points="98,24 96,36 108,41 97,49 101,61 89,53 81,61 80,48 68,44 79,37" />
-        <!-- Stella Sud-Est -->
-        <polygon points="104,72 92,72 87,83 83,72 71,76 78,65 73,54 84,57 91,48 93,60" />
-        <!-- Stella Sud -->
-        <polygon points="60,112 55,100 42,103 49,92 40,83 53,86 60,76 67,86 80,83 71,92 78,103 65,100" />
-        <!-- Stella Sud-Ovest -->
-        <polygon points="16,96 28,96 33,85 37,96 49,92 42,103 47,114 36,111 29,120 27,108" />
-        <!-- Stella Ovest -->
-        <polygon points="22,48 34,48 39,37 43,48 55,44 48,55 53,66 42,63 35,72 33,60" />
-        <!-- Stella Nord-Ovest -->
-        <polygon points="22,24 34,32 34,44 23,40 12,48 15,36 6,28 18,28 22,16 26,28" />
-      </g>
-      <!-- Bordo / Ombreggiatura Sferica -->
-      <circle cx="60" cy="60" r="54" fill="url(#clSphereRim)" />
-      <!-- Riflesso Superiore 3D -->
-      <path d="M 28 34 A 46 46 0 0 1 92 34" stroke="url(#clSpecGlow)" stroke-width="2" stroke-linecap="round" fill="none" />
-    </svg>
-    """
+    starball_raw_svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="sphere" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#253550" />
+      <stop offset="35%" stop-color="#121C2B" />
+      <stop offset="75%" stop-color="#080E18" />
+      <stop offset="100%" stop-color="#020408" />
+    </radialGradient>
+    <linearGradient id="star" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="40%" stop-color="#F8FAFC" />
+      <stop offset="75%" stop-color="#CBD5E1" />
+      <stop offset="100%" stop-color="#94A3B8" />
+    </linearGradient>
+    <radialGradient id="rim" cx="50%" cy="50%" r="50%">
+      <stop offset="85%" stop-color="transparent" />
+      <stop offset="100%" stop-color="rgba(0,0,0,0.85)" />
+    </radialGradient>
+    <linearGradient id="spec" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+  <circle cx="100" cy="100" r="90" fill="url(#sphere)" stroke="rgba(255,255,255,0.22)" stroke-width="2" />
+  <g fill="url(#star)" stroke="#060910" stroke-width="1.8" stroke-linejoin="round">
+    <polygon points="100,55 110,78 135,78 115,93 122,118 100,103 78,118 85,93 65,78 90,78" />
+    <polygon points="100,14 108,34 130,29 118,47 133,62 112,57 100,74 88,57 67,62 82,47 70,29 92,34" />
+    <polygon points="163,40 160,60 180,68 162,82 168,102 148,88 135,102 133,80 113,73 132,62" />
+    <polygon points="173,120 153,120 145,138 138,120 118,127 130,108 122,90 140,95 152,80 155,100" />
+    <polygon points="100,186 92,166 70,171 82,153 67,138 88,143 100,126 112,143 133,138 118,153 130,171 108,166" />
+    <polygon points="27,160 47,160 55,142 62,160 82,153 70,172 78,190 60,185 48,200 45,180" />
+    <polygon points="37,80 57,80 65,62 72,80 92,73 80,92 88,110 70,105 58,120 55,100" />
+    <polygon points="37,40 57,53 57,73 38,67 20,80 25,60 10,47 30,47 37,27 43,47" />
+  </g>
+  <circle cx="100" cy="100" r="90" fill="url(#rim)" />
+  <path d="M 46 56 A 76 76 0 0 1 154 56" stroke="url(#spec)" stroke-width="3" stroke-linecap="round" fill="none" />
+</svg>"""
+    
+    starball_b64 = base64.b64encode(starball_raw_svg.strip().encode("utf-8")).decode("ascii")
 
     header_html = f"""
     <div id="luxury-pin-marker"></div>
     <div class="starball-glow-container">
-        {starball_svg}
+        <img class="starball-img" src="data:image/svg+xml;base64,{starball_b64}" alt="UEFA Champions League Starball" />
     </div>
     <h2 class="luxury-login-title">{title}</h2>
     <p class="luxury-login-subtitle">{subtitle}</p>
