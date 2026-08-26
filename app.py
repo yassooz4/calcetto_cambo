@@ -39,36 +39,44 @@ PIN_VIEWER = "5678"
 PIN_ADMIN = "8765"
 
 def render_pin_gate():
-    """Mostra la schermata di login con verifica PIN (Sola Lettura vs Amministratore)."""
-    col1, col2, col3 = st.columns([1, 2, 1])
+    """Mostra la schermata di login con verifica PIN in stile Matte Dark Neumorphism / Luxury Dark UI."""
+    col1, col2, col3 = st.columns([1, 1.3, 1])
     with col2:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        st.markdown("<div style='text-align: center; font-size: 3.5rem;'>⚽🔒</div>", unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align: center; color: #10b981;'>Calcetto Stats & Manager</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #94a3b8;'>Inserisci il PIN per accedere alla piattaforma</p>", unsafe_allow_html=True)
-        
         with st.form("pin_form", clear_on_submit=False):
-            pin_input = st.text_input("PIN di Accesso", type="password", placeholder="••••", max_chars=10)
-            submit_btn = st.form_submit_button("Sblocca Applicazione 🔓", use_container_width=True)
+            ui_components.render_luxury_pin_header(
+                title="Enter Passcode",
+                subtitle="Inserisci il codice di accesso a 4 cifre per consultare statistiche e formazioni"
+            )
+            
+            pin_input = st.text_input(
+                "PIN di Accesso",
+                type="password",
+                placeholder="••••",
+                max_chars=4,
+                key="pin_passcode_input",
+                autocomplete="off"
+            )
+            
+            submit_btn = st.form_submit_button("Sblocca Accesso ⚡", use_container_width=True)
             
             if submit_btn:
                 pin_clean = pin_input.strip()
                 if pin_clean == PIN_ADMIN:
                     st.session_state["authenticated"] = True
                     st.session_state["user_role"] = "admin"
-                    st.success("Accesso eseguito come **Amministratore** 🛡️")
                     st.rerun()
                 elif pin_clean == PIN_VIEWER:
                     st.session_state["authenticated"] = True
                     st.session_state["user_role"] = "viewer"
-                    st.success("Accesso eseguito in modalità **Sola Lettura** 👁️")
                     st.rerun()
                 else:
-                    st.error("❌ PIN non valido.")
+                    ui_components.render_luxury_pin_error("Passcode non valido")
 
         # Footer informativo e diagnostica rapida stato storage
         _, _, _, _, storage_source, storage_error = storage.load_data()
-        st.markdown(f"<div style='text-align: center; font-size: 0.8rem; color: #64748b; margin-top: 1.5rem;'>Persistenza: <b>{storage_source}</b></div>", unsafe_allow_html=True)
+        ui_components.render_html(
+            f"<div style='text-align: center; font-size: 0.78rem; color: #475569; margin-top: 1rem; font-family: var(--font-luxury);'>Persistenza: <b style='color: #64748b;'>{storage_source}</b></div>"
+        )
         if storage_error and storage_source != "Google Sheets (Cloud)":
             with st.expander("⚠️ Diagnostica Connessione Google Sheets", expanded=False):
                 st.warning(f"**Dettaglio Fallback:**\n\n{storage_error}")

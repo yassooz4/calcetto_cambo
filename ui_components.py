@@ -47,7 +47,7 @@ def inject_custom_theme() -> None:
         /* ----------------------------------------------------------------------
            1. Google Fonts Import (Typography & Icons)
            ---------------------------------------------------------------------- */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&family=Teko:wght@600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Teko:wght@600;700&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
@@ -69,6 +69,7 @@ def inject_custom_theme() -> None:
             --text-muted: #94A3B8;
             --text-sub: #64748B;
             --font-display: 'Outfit', sans-serif;
+            --font-luxury: 'Plus Jakarta Sans', 'Inter', sans-serif;
             --font-body: 'Inter', sans-serif;
             --font-stat: 'Teko', sans-serif;
         }
@@ -535,6 +536,171 @@ def inject_custom_theme() -> None:
         [data-testid="stDataFrame"] > div {
             overflow-x: auto !important;
             -webkit-overflow-scrolling: touch !important;
+        }
+
+        /* ----------------------------------------------------------------------
+           15. Matte Dark Neumorphism / Luxury Dark UI Passcode Screen
+           ---------------------------------------------------------------------- */
+        .luxury-login-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            padding: 1rem 0;
+            box-sizing: border-box;
+        }
+        .luxury-login-card {
+            width: 100%;
+            max-width: 440px;
+            margin: 0 auto;
+            background: linear-gradient(145deg, #111522 0%, #0B0E17 100%);
+            background-image: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 4px), linear-gradient(145deg, #111522 0%, #0B0E17 100%);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 35px rgba(59, 130, 246, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+            padding: clamp(28px, 6vw, 40px) clamp(20px, 5vw, 32px) clamp(24px, 5vw, 32px) clamp(20px, 5vw, 32px);
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .luxury-badge-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 22px;
+            position: relative;
+        }
+        .luxury-badge-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.28) 0%, rgba(59, 130, 246, 0) 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .luxury-3d-badge {
+            position: relative;
+            z-index: 2;
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1E2538 0%, #0D111A 100%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.75), inset 0 2px 4px rgba(255, 255, 255, 0.25), inset 0 -2px 4px rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+        }
+        .luxury-3d-badge:hover {
+            transform: translateY(-2px) scale(1.04);
+            box-shadow: 0 18px 38px rgba(0, 0, 0, 0.85), 0 0 25px rgba(59, 130, 246, 0.35), inset 0 2px 4px rgba(255, 255, 255, 0.35);
+        }
+        .luxury-badge-icon {
+            font-size: 2.6rem;
+            filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
+            line-height: 1;
+        }
+        .luxury-login-title {
+            font-family: var(--font-luxury) !important;
+            font-size: 1.6rem !important;
+            font-weight: 700 !important;
+            color: #FFFFFF !important;
+            letter-spacing: -0.5px !important;
+            margin: 0 0 8px 0 !important;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+        .luxury-login-subtitle {
+            font-family: var(--font-luxury) !important;
+            font-size: 0.85rem !important;
+            color: #64748B !important;
+            font-weight: 400 !important;
+            line-height: 1.4 !important;
+            margin: 0 0 24px 0 !important;
+        }
+        /* Custom Streamlit Pin Form styling */
+        div[data-testid="stForm"]:has(#luxury-pin-marker) {
+            background: linear-gradient(145deg, #111522 0%, #0B0E17 100%) !important;
+            background-image: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 1px, transparent 1px, transparent 4px), linear-gradient(145deg, #111522 0%, #0B0E17 100%) !important;
+            border-radius: 28px !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 35px rgba(59, 130, 246, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.1) !important;
+            padding: clamp(28px, 6vw, 40px) clamp(20px, 5vw, 32px) clamp(24px, 5vw, 32px) clamp(20px, 5vw, 32px) !important;
+            max-width: 440px !important;
+            margin: 2rem auto !important;
+            position: relative !important;
+            overflow: hidden !important;
+            text-align: center !important;
+            box-sizing: border-box !important;
+        }
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] input {
+            background: #0B0E17 !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-radius: 14px !important;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.7) !important;
+            color: #FFFFFF !important;
+            font-size: 1.6rem !important;
+            font-weight: 700 !important;
+            text-align: center !important;
+            letter-spacing: 16px !important;
+            padding: 12px 16px !important;
+            height: 56px !important;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            font-family: var(--font-luxury) !important;
+        }
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] input:focus {
+            border: 1px solid rgba(255, 255, 255, 0.4) !important;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.7), 0 0 22px rgba(59, 130, 246, 0.25) !important;
+            outline: none !important;
+        }
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="stTextInput"] label {
+            display: none !important;
+        }
+        div[data-testid="stForm"]:has(#luxury-pin-marker) button {
+            background: #1E2538 !important;
+            color: #F8FAFC !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            border-radius: 14px !important;
+            padding: 12px 24px !important;
+            font-size: 0.95rem !important;
+            font-weight: 700 !important;
+            font-family: var(--font-luxury) !important;
+            letter-spacing: 0.4px !important;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5) !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            width: 100% !important;
+            margin-top: 14px !important;
+            height: 50px !important;
+        }
+        div[data-testid="stForm"]:has(#luxury-pin-marker) button:hover {
+            background: #28334E !important;
+            border-color: rgba(59, 130, 246, 0.5) !important;
+            color: #FFFFFF !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.25) !important;
+        }
+        div[data-testid="stForm"]:has(#luxury-pin-marker) button:active {
+            transform: translateY(0px) !important;
+        }
+        .luxury-error-pill {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #FCA5A5;
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: 14px;
+            font-family: var(--font-luxury);
+            text-align: center;
         }
     </style>
     """
@@ -1224,3 +1390,42 @@ def render_champions_scoreboard(
     </div>
     """
     render_html(card_html)
+
+
+# ==============================================================================
+# 6. SCHERMATA LOGIN & PASSCODE: LUXURY DARK NEUMORPHISM / MATTE DARK UI
+# ==============================================================================
+def render_luxury_pin_header(
+    title: str = "Enter Passcode",
+    subtitle: str = "Inserisci il codice di accesso a 4 cifre per consultare statistiche e formazioni"
+) -> None:
+    """
+    Renderizza l'header grafico di autenticazione in stile Matte Dark Neumorphism / Luxury Dark UI.
+    Include l'icona 3D satinata con riflesso e glow blu, il titolo geometrico e la didascalia.
+    Inietta inoltre il marcatore DOM #luxury-pin-marker per agganciare le regole CSS al form Streamlit.
+    """
+    header_html = f"""
+    <div id="luxury-pin-marker"></div>
+    <div class="luxury-badge-wrapper">
+        <div class="luxury-badge-glow"></div>
+        <div class="luxury-3d-badge">
+            <span class="luxury-badge-icon">⚽</span>
+        </div>
+    </div>
+    <h2 class="luxury-login-title">{title}</h2>
+    <p class="luxury-login-subtitle">{subtitle}</p>
+    """
+    render_html(header_html)
+
+
+def render_luxury_pin_error(message: str = "Passcode non valido") -> None:
+    """
+    Renderizza un messaggio di errore elegante in stile Luxury Matte Dark UI.
+    """
+    error_html = f"""
+    <div class="luxury-error-pill">
+        <span>⚠️ {message}</span>
+    </div>
+    """
+    render_html(error_html)
+
