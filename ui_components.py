@@ -655,7 +655,7 @@ def inject_custom_theme() -> None:
             box-sizing: border-box !important;
         }
 
-        /* 2. Styling dei 4 Quadratini in Vetro OTP */
+        /* 2. Styling dei 4 Quadratini in Vetro OTP con Mascheramento a Pallini */
         div[data-testid="stForm"]:has(#luxury-pin-marker) [data-testid="stHorizontalBlock"] {
             max-width: 280px !important;
             margin: 0 auto 10px auto !important;
@@ -697,7 +697,8 @@ def inject_custom_theme() -> None:
             box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6), 0 0 16px rgba(59, 130, 246, 0.3) !important;
         }
 
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"] input {
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-baseweb="input"] input,
+        div[data-testid="column"] input {
             text-align: center !important;
             font-size: 1.6rem !important;
             font-weight: 700 !important;
@@ -708,12 +709,17 @@ def inject_custom_theme() -> None:
             box-shadow: none !important;
             height: 58px !important;
             width: 100% !important;
+            -webkit-text-security: disc !important;
+            text-security: disc !important;
             font-family: var(--font-luxury), monospace !important;
         }
 
         div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInput"] button,
-        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInput"] svg {
+        div[data-testid="stForm"]:has(#luxury-pin-marker) div[data-testid="column"] div[data-testid="stTextInput"] svg,
+        div[data-testid="column"] button,
+        div[data-testid="column"] svg {
             display: none !important;
+            visibility: hidden !important;
         }
 
         /* Sleek Button in Pin Gate */
@@ -1505,12 +1511,70 @@ def render_luxury_pin_header(
 
 def render_luxury_pin_footer() -> None:
     """
-    Renderizza il testo d'aiuto elegante sotto i box di autenticazione.
+    Renderizza il testo d'aiuto elegante sotto i box di autenticazione e inietta
+    il gestore JavaScript per Auto-Focus e Auto-Advance tra i 4 slot OTP.
     """
     footer_html = """
     <div class="luxury-help-text">
         Problemi di accesso? <span>Contatta l'Amministratore</span>
     </div>
+    <script>
+    (function() {
+        function setupOtpAutoAdvance() {
+            const labels = ['d1', 'd2', 'd3', 'd4'];
+            const inputs = labels.map(l => document.querySelector('input[aria-label="' + l + '"]')).filter(Boolean);
+            
+            if (inputs.length === 4) {
+                inputs.forEach((inp, idx) => {
+                    if (inp.dataset.otpBound === "true") return;
+                    inp.dataset.otpBound = "true";
+
+                    // Auto-advance alla digitazione
+                    inp.addEventListener('input', function() {
+                        if (this.value && this.value.length >= 1 && idx < 3) {
+                            inputs[idx + 1].focus();
+                            inputs[idx + 1].select();
+                        }
+                    });
+
+                    // Backspace per tornare alla cella precedente se vuota
+                    inp.addEventListener('keydown', function(e) {
+                        if (e.key === 'Backspace' && !this.value && idx > 0) {
+                            inputs[idx - 1].focus();
+                            inputs[idx - 1].select();
+                        }
+                    });
+
+                    // Supporto Incolla (Paste 4 cifre)
+                    inp.addEventListener('paste', function(e) {
+                        e.preventDefault();
+                        const pasteData = (e.clipboardData || window.clipboardData).getData('text').trim();
+                        if (pasteData.length === 4) {
+                            for (let i = 0; i < 4; i++) {
+                                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                                nativeInputValueSetter.call(inputs[i], pasteData[i]);
+                                inputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+                                inputs[i].dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                            inputs[3].focus();
+                        }
+                    });
+                });
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupOtpAutoAdvance);
+        } else {
+            setupOtpAutoAdvance();
+        }
+        
+        try {
+            const observer = new MutationObserver(setupOtpAutoAdvance);
+            observer.observe(document.body, { childList: true, subtree: true });
+        } catch(e) {}
+    })();
+    </script>
     """
     render_html(footer_html)
 
@@ -1525,6 +1589,7 @@ def render_luxury_pin_error(message: str = "Passcode non valido") -> None:
     </div>
     """
     render_html(error_html)
+
 
 
 

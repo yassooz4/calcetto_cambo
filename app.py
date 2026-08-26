@@ -48,16 +48,16 @@ def render_pin_gate():
                 subtitle="Inserisci il codice PIN di accesso a 4 cifre<br>per sbloccare statistiche e formazioni"
             )
             
-            # Layout a 4 slot per PIN (Streamlit native 4-columns)
+            # Layout a 4 slot per PIN (Streamlit native 4-columns con type="default" per evitare generazione icona occhio)
             c1, c2, c3, c4 = st.columns(4)
             with c1:
-                d1 = st.text_input("d1", max_chars=1, key="pin_d1", label_visibility="collapsed", type="password")
+                d1 = st.text_input("d1", max_chars=1, key="pin_d1", label_visibility="collapsed", type="default", autocomplete="off")
             with c2:
-                d2 = st.text_input("d2", max_chars=1, key="pin_d2", label_visibility="collapsed", type="password")
+                d2 = st.text_input("d2", max_chars=1, key="pin_d2", label_visibility="collapsed", type="default", autocomplete="off")
             with c3:
-                d3 = st.text_input("d3", max_chars=1, key="pin_d3", label_visibility="collapsed", type="password")
+                d3 = st.text_input("d3", max_chars=1, key="pin_d3", label_visibility="collapsed", type="default", autocomplete="off")
             with c4:
-                d4 = st.text_input("d4", max_chars=1, key="pin_d4", label_visibility="collapsed", type="password")
+                d4 = st.text_input("d4", max_chars=1, key="pin_d4", label_visibility="collapsed", type="default", autocomplete="off")
             
             submit_btn = st.form_submit_button("Sblocca Accesso ⚡", use_container_width=True)
             
