@@ -40,24 +40,26 @@ PIN_ADMIN = "8765"
 
 def render_pin_gate():
     """Mostra la schermata di login con verifica PIN in stile Matte Dark Neumorphism / Luxury Dark UI."""
-    col1, col2, col3 = st.columns([1, 1.3, 1])
+    col1, col2, col3 = st.columns([1, 1.35, 1])
     with col2:
         with st.form("pin_form", clear_on_submit=False):
             ui_components.render_luxury_pin_header(
-                title="Enter Passcode",
-                subtitle="Inserisci il codice di accesso a 4 cifre per consultare statistiche e formazioni"
+                title="4 digit code",
+                subtitle="Inserisci il codice PIN di accesso a 4 cifre<br>per sbloccare statistiche e formazioni"
             )
             
             pin_input = st.text_input(
-                "PIN di Accesso",
+                "Passcode",
                 type="password",
-                placeholder="••••",
+                placeholder="",
                 max_chars=4,
                 key="pin_passcode_input",
                 autocomplete="off"
             )
             
             submit_btn = st.form_submit_button("Sblocca Accesso ⚡", use_container_width=True)
+            
+            ui_components.render_luxury_pin_footer()
             
             if submit_btn:
                 pin_clean = pin_input.strip()
