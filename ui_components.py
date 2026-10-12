@@ -8,6 +8,7 @@ Componenti: Theme Injection, FUT Card, Plotly Radar Chart, 2D Pitch, Scoreboard
 
 import base64
 import json
+from html import escape
 from pathlib import Path
 import textwrap
 from typing import Dict, List, Any, Optional, Tuple
@@ -1050,10 +1051,9 @@ def render_fut_card(
 ) -> None:
     """
     Renderizza una card in stile EA Sports FC / FIFA Ultimate Team.
-    Layout mobile-first responsive con Overall Rating (OVR) grande, Badge Cerchia ⭐,
-    e la griglia dei 6 attributi chiave (VIT, GOL, MVP, VAL, ELO, AFF).
+    OVR, three weighted components and the recent composite, with sample status.
     """
-    ovr = fifa_stats.get("ovr", 75)
+    ovr = fifa_stats.get("ovr")
     elo_val = fifa_stats.get("elo", 1500.0)
     attrs = fifa_stats.get("attributes", {})
     pg = fifa_stats.get("pg", 0)
@@ -1061,12 +1061,14 @@ def render_fut_card(
     mvp = fifa_stats.get("titoli_mvp", 0)
     peggiore = fifa_stats.get("titoli_peggiore", 0)
 
-    vit_val = attrs.get("VIT", 70)
-    gol_val = attrs.get("GOL", 70)
-    mvp_val = attrs.get("MVP", 70)
-    val_val = attrs.get("FRM", 70)
-    elo_stat = attrs.get("ELO", ovr)
-    aff_val = attrs.get("AFF", 70)
+    display = lambda value: "—" if value is None else str(value)
+    ovr_text = display(ovr)
+    ris_val = display(attrs.get("RIS"))
+    gol_val = display(attrs.get("GOL"))
+    mvp_val = display(attrs.get("MVP"))
+    val_val = display(attrs.get("FRM"))
+    status = "Non ancora valutato" if not pg else "OVR provvisorio" if fifa_stats.get("provisional") else f"Basato su {pg} partite"
+    player_name = escape(player_name)
 
     cerchia_class = "cerchia" if is_cerchia else ""
     role_badge_text = "⭐ CERCHIA RISTRETTA" if is_cerchia else "CALCETTO PLAYER"
@@ -1084,9 +1086,9 @@ def render_fut_card(
             <!-- Top Header: OVR + Position / Status -->
             <div class="fut-card-header">
                 <div>
-                    <div class="fut-ovr-num">{ovr}</div>
+                    <div class="fut-ovr-num">{ovr_text}</div>
                     <div class="fut-ovr-label" style="color: {badge_color};">
-                        OVR • FUT CARD
+                        OVR • RATING CAMBO
                     </div>
                 </div>
                 <div style="text-align: right;">
@@ -1104,7 +1106,7 @@ def render_fut_card(
                         {role_badge_text}
                     </span>
                     <div style="font-size: 0.75rem; color: #94A3B8; margin-top: 4px;">
-                        ⚡ ELO: <b>{elo_val:.1f}</b>
+                        {status}
                     </div>
                 </div>
             </div>
@@ -1133,31 +1135,23 @@ def render_fut_card(
                 {player_name}
             </div>
 
-            <!-- 6 FIFA Attributes Grid (2 Columns x 3 Rows) -->
+            <!-- Three weighted components and the recent composite -->
             <div class="fut-attrs-grid">
                 <div class="fut-attr-item">
-                    <span class="fut-attr-val" style="color: #00E676;">{vit_val}</span>
-                    <span class="fut-attr-lbl">VIT (% Vitt.)</span>
+                    <span class="fut-attr-val" style="color: #00E676;">{ris_val}</span>
+                    <span class="fut-attr-lbl">RIS · 45%</span>
                 </div>
                 <div class="fut-attr-item">
                     <span class="fut-attr-val" style="color: #FF3D71;">{gol_val}</span>
-                    <span class="fut-attr-lbl">GOL (Marc.)</span>
+                    <span class="fut-attr-lbl">GOL · 45%</span>
                 </div>
                 <div class="fut-attr-item">
                     <span class="fut-attr-val" style="color: #FFD700;">{mvp_val}</span>
-                    <span class="fut-attr-lbl">MVP (Decis.)</span>
+                    <span class="fut-attr-lbl">MVP · 10%</span>
                 </div>
                 <div class="fut-attr-item">
                     <span class="fut-attr-val" style="color: #00E5FF;">{val_val}</span>
-                    <span class="fut-attr-lbl">FRM (Forma)</span>
-                </div>
-                <div class="fut-attr-item">
-                    <span class="fut-attr-val" style="color: #C084FC;">{elo_stat}</span>
-                    <span class="fut-attr-lbl">ELO (Indice)</span>
-                </div>
-                <div class="fut-attr-item">
-                    <span class="fut-attr-val" style="color: #38BDF8;">{aff_val}</span>
-                    <span class="fut-attr-lbl">AFF (Pres.)</span>
+                    <span class="fut-attr-lbl">FRM · ultime 5</span>
                 </div>
             </div>
 
@@ -1166,12 +1160,38 @@ def render_fut_card(
                 <span>Partite: <b style="color: #FFFFFF;">{pg}</b></span>
                 <span>Gol: <b style="color: #FFFFFF;">{gol}</b></span>
                 <span>MVP: <b style="color: #FFD700;">{mvp}</b></span>
-                <span>Peggiore: <b style="color: #00E676;">{peggiore}</b></span>
+                <span>Vittorie: <b style="color: #00E676;">{fifa_stats.get('vittorie', 0)}</b></span>
+            </div>
+            <div style="text-align:center;font-size:0.68rem;color:#94A3B8;margin-top:12px;">
+                80% rendimento complessivo · 20% recente
             </div>
         </div>
     </div>
     """
     render_html(card_html)
+
+
+def render_ovr_breakdown(stats: Dict[str, Any]) -> None:
+    """Explain the chosen rating rules using public aggregates only."""
+    with st.expander("Come si calcola l'OVR"):
+        st.write("45% gol · 45% risultati · 10% MVP. L'OVR combina l'80% del rendimento complessivo con il 20% delle ultime cinque partite giocate.")
+        st.caption("Gli indici sono sulla scala 50–99. La forma recente usa gli stessi tre parametri; non è un quarto bonus.")
+        if not stats.get("pg"):
+            st.info("Nessuna partita giocata: il punteggio verrà calcolato dopo la prima presenza.")
+            return
+        details = stats["ovr_details"]
+        overall, recent = details["overall"], details["recent"]
+        st.write(f"**Gol:** {overall['goals_per_match']:.2f} per partita. L'indice parte da 50 e raggiunge 99 con {details['goal_reference']:.1f} gol per partita.")
+        st.write(f"**Risultati:** {stats['punti']} punti su {3 * stats['pg']} possibili. Vittoria = 3, pareggio = 1, sconfitta = 0.")
+        if overall["mvp_matches"]:
+            st.write(f"**MVP:** {overall['mvp_titles']} titoli in {overall['mvp_matches']} partite con risultato MVP pubblicato. Sono inclusi i titoli ex aequo.")
+        else:
+            st.caption("MVP: nessun risultato pubblicato per le tue partite. L'indice resta al valore base 50; le votazioni aperte non vengono conteggiate.")
+        st.write(f"**Complessivo:** {overall['ovr']:.2f} · **Recente:** {recent['ovr']:.2f} su {recent['games']} partite.")
+        st.write(f"**OVR:** 80% × {overall['ovr']:.2f} + 20% × {recent['ovr']:.2f} = **{stats['ovr']}**, arrotondato soltanto alla fine.")
+        st.caption("Tutti i dati rispettano il filtro delle partite selezionato. ELO, presenze e titoli di peggiore non aggiungono o sottraggono punti all'OVR.")
+        if stats.get("provisional"):
+            st.caption("OVR provvisorio: hai giocato meno di cinque partite. Il numero di presenze descrive la quantità di dati, non la bravura.")
 
 
 # ==============================================================================
@@ -1264,14 +1284,13 @@ def render_tactical_pitch(
     team_a: List[str],
     team_b: List[str],
     elo_ratings: Dict[str, float],
-    match_info: Optional[Dict[str, Any]] = None
+    match_info: Optional[Dict[str, Any]] = None,
+    player_ovrs: Optional[Dict[str, Optional[int]]] = None
 ) -> None:
     """
     Renderizza un campo da calcio 2D vettoriale/CSS fluido e responsive (aspect-ratio: 16/10).
     Posiziona graficamente i titolari di Squadra A e Squadra B con OVR e nomi scalabili.
     """
-    from logic import elo_to_fifa_ovr
-
     # Calcolo medie ELO
     sum_a = sum(elo_ratings.get(p, 1500.0) for p in team_a)
     sum_b = sum(elo_ratings.get(p, 1500.0) for p in team_b)
@@ -1299,8 +1318,8 @@ def render_tactical_pitch(
     # Generazione nodi giocatori Squadra A
     nodes_a_html = ""
     for idx, player in enumerate(team_a[:5]):
-        p_elo = elo_ratings.get(player, 1500.0)
-        p_ovr = elo_to_fifa_ovr(p_elo)
+        p_ovr = (player_ovrs or {}).get(player)
+        p_ovr = "—" if p_ovr is None else p_ovr
         coords = pos_a[idx] if idx < len(pos_a) else {"x": 20, "y": 50, "role": "CEN"}
         
         nodes_a_html += f"""
@@ -1357,8 +1376,8 @@ def render_tactical_pitch(
     # Generazione nodi giocatori Squadra B
     nodes_b_html = ""
     for idx, player in enumerate(team_b[:5]):
-        p_elo = elo_ratings.get(player, 1500.0)
-        p_ovr = elo_to_fifa_ovr(p_elo)
+        p_ovr = (player_ovrs or {}).get(player)
+        p_ovr = "—" if p_ovr is None else p_ovr
         coords = pos_b[idx] if idx < len(pos_b) else {"x": 80, "y": 50, "role": "CEN"}
         
         nodes_b_html += f"""
