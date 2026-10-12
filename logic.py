@@ -266,7 +266,10 @@ def calculate_player_vote_stats(
     filter_set = set(str(p).strip() for p in giocatori_filtrati if str(p).strip()) if giocatori_filtrati is not None else None
 
     if df_voti is not None and "mvp_names" in df_voti.columns:
+        match_ids = set(pd.to_numeric(df_partite.get("id_partita", pd.Series(dtype=float)), errors="coerce").dropna().astype(int))
         for _, final in df_voti.iterrows():
+            if int(final["id_partita"]) not in match_ids:
+                continue
             for field, count_field in [("mvp_names", "titoli_mvp"), ("worst_names", "titoli_peggiore")]:
                 for name in final[field]:
                     if filter_set is not None and name not in filter_set:
@@ -845,17 +848,37 @@ def calculate_season_mvp_leaderboard(
 # ==============================================================================
 # 9. ATTRIBUTI STILE FIFA / EA SPORTS FC & METRICHE RADAR CHART (DOMAIN PURE)
 # ==============================================================================
-def elo_to_fifa_ovr(elo: float) -> int:
+OVR_WEIGHTS = {"GOL": 0.45, "RIS": 0.45, "MVP": 0.10}
+OVR_GOALS_REFERENCE = 3.5
+OVR_RECENT_MATCHES = 5
+
+
+def _period_rating(records):
+    """Use the same fixed 50–99 scales for full history and recent matches.
+
+    A zero award rate is the neutral starting score (50), not a penalty.
+    Unpublished elections do not enter the award-rate denominator.
+    Keep full precision until the final displayed OVR is rounded.
     """
-    Converte un rating ELO dinamico in una valutazione Overall FIFA (0-99).
-    Base ELO: 1500 -> 75 OVR.
-    Variazione: ogni 15 punti ELO equivalgono a circa 1 punto OVR.
-    Range limitato tra 50 e 99.
-    """
-    if pd.isna(elo):
-        return 75
-    raw_ovr = 75.0 + (float(elo) - 1500.0) / 15.0
-    return max(50, min(99, int(round(raw_ovr))))
+    if not records:
+        return {"ovr": None, "scores": {key: None for key in OVR_WEIGHTS},
+                "games": 0, "goals_per_match": 0.0, "points_rate": 0.0,
+                "mvp_titles": 0, "mvp_matches": 0}
+    games = len(records)
+    goals_per_match = sum(row["goals"] for row in records) / games
+    points_rate = sum(row["points"] for row in records) / (3 * games)
+    settled = [row for row in records if row["settled"]]
+    mvp_titles = sum(row["mvp"] for row in settled)
+    mvp_rate = mvp_titles / len(settled) if settled else 0.0
+    scores = {
+        "GOL": 50 + 49 * min(1.0, max(0.0, goals_per_match / OVR_GOALS_REFERENCE)),
+        "RIS": 50 + 49 * points_rate,
+        "MVP": 50 + 49 * mvp_rate,
+    }
+    return {"ovr": sum(OVR_WEIGHTS[key] * score for key, score in scores.items()),
+            "scores": scores, "games": games, "goals_per_match": goals_per_match,
+            "points_rate": points_rate, "mvp_titles": mvp_titles,
+            "mvp_matches": len(settled)}
 
 
 def calculate_player_fifa_stats(
@@ -866,124 +889,62 @@ def calculate_player_fifa_stats(
     elo_ratings: Optional[Dict[str, float]] = None,
     giocatori_filtrati: Optional[List[str]] = None
 ) -> Dict[str, Any]:
-    """
-    Calcola il set completo di attributi stile FIFA Ultimate Team (6 statistiche chiave)
-    e metriche accessorie per il giocatore selezionato.
-    Tutte le statistiche sono pure e normalizzate per il rendering grafico.
+    """OVR = 80% full-history rating + 20% last-five rating.
+
+    Both ratings use 45% goals, 45% results and 10% published MVP titles.
+    ELO is retained as separate match-balancing information only.
+    df_partite defines the selected scope, including the Cerchia filter.
     """
     clean_name = str(player_name).strip()
     if elo_ratings is None:
         elo_ratings, _ = calculate_elo_ratings(df_giocatori, df_partite, giocatori_filtrati=giocatori_filtrati)
-
     p_elo = float(elo_ratings.get(clean_name, 1500.0))
-    ovr = elo_to_fifa_ovr(p_elo)
 
-    # 1. Presenze, Vittorie, Forma e Gol
-    pg = 0
-    v = 0
-    p = 0
-    s = 0
-    gol_segnati = 0
-    forma = []
-
+    records = []
     if not df_partite.empty:
-        df_sorted = df_partite.copy()
-        if "data" in df_sorted.columns and "id_partita" in df_sorted.columns:
-            df_sorted = df_sorted.sort_values(by=["data", "id_partita"], ascending=[False, False])
+        ordered = df_partite.sort_values(by=["data", "id_partita"], ascending=[False, False])
+        for _, match in ordered.iterrows():
+            team_a = [name.strip() for name in str(match.get("squadra_a_giocatori", "")).split(",") if name.strip()]
+            team_b = [name.strip() for name in str(match.get("squadra_b_giocatori", "")).split(",") if name.strip()]
+            if clean_name not in team_a and clean_name not in team_b:
+                continue
+            goals_a = int(match.get("gol_squadra_a", 0))
+            goals_b = int(match.get("gol_squadra_b", 0))
+            own, other = (goals_a, goals_b) if clean_name in team_a else (goals_b, goals_a)
+            result = "V" if own > other else "P" if own == other else "S"
+            final = calculate_match_ratings(df_voti, int(match["id_partita"])) if df_voti is not None else {"has_votes": False}
+            def awarded(category):
+                award = final.get(category) or {}
+                return clean_name in award.get("giocatori", [award.get("giocatore")])
+            records.append({"match_id": int(match["id_partita"]), "result": result,
+                            "points": {"V": 3, "P": 1, "S": 0}[result],
+                            "goals": parse_marcatori(match.get("marcatori", "")).get(clean_name, 0),
+                            "settled": final["has_votes"], "mvp": awarded("mvp"),
+                            "worst": awarded("worst")})
 
-        for _, match in df_sorted.iterrows():
-            raw_a = [x.strip() for x in str(match.get("squadra_a_giocatori", "")).split(",") if x.strip()]
-            raw_b = [x.strip() for x in str(match.get("squadra_b_giocatori", "")).split(",") if x.strip()]
-            gol_a = int(match.get("gol_squadra_a", 0))
-            gol_b = int(match.get("gol_squadra_b", 0))
-
-            in_a = clean_name in raw_a
-            in_b = clean_name in raw_b
-
-            if in_a or in_b:
-                pg += 1
-                m_dict = parse_marcatori(match.get("marcatori", ""))
-                if clean_name in m_dict:
-                    gol_segnati += m_dict[clean_name]
-
-                if in_a:
-                    if gol_a > gol_b:
-                        v += 1
-                        forma.append("V")
-                    elif gol_a == gol_b:
-                        p += 1
-                        forma.append("P")
-                    else:
-                        s += 1
-                        forma.append("S")
-                elif in_b:
-                    if gol_b > gol_a:
-                        v += 1
-                        forma.append("V")
-                    elif gol_b == gol_a:
-                        p += 1
-                        forma.append("P")
-                    else:
-                        s += 1
-                        forma.append("S")
-
-    win_rate = round((v / pg * 100), 1) if pg > 0 else 0.0
-    media_gol = round(gol_segnati / pg, 2) if pg > 0 else 0.0
-
-    # 2. Statistiche Pagelle / MVP
-    vote_stats = calculate_player_vote_stats(df_partite, df_voti, giocatori_filtrati=giocatori_filtrati) if df_voti is not None else {}
-    p_votes = vote_stats.get(clean_name, {})
-    titoli_mvp = int(p_votes.get("titoli_mvp", 0))
-    titoli_peggiore = int(p_votes.get("titoli_peggiore", 0))
-    media_voto = p_votes.get("media_voto", None)
-
-    # 3. Calcolo 6 Attributi FIFA (Normalizzati tra 45 e 99)
-    # VIT: Win Factor (0% -> 50, 50% -> 75, 100% -> 99)
-    stat_vit = max(45, min(99, int(round(50 + (win_rate * 0.49))))) if pg > 0 else 60
-
-    # GOL: Goal Factor (0 g/g -> 50, 1.5 g/g -> 75, 3.5+ g/g -> 99)
-    stat_gol = max(45, min(99, int(round(50 + (media_gol * 14.0))))) if pg > 0 else 55
-
-    # MVP: Decisività (MVP count & rate)
-    mvp_rate = (titoli_mvp / pg) if pg > 0 else 0.0
-    stat_mvp = max(45, min(99, int(round(60 + (titoli_mvp * 6.0) + (mvp_rate * 25.0)))))
-
-    # Forma recente: esiti delle ultime cinque partite, senza pagelle numeriche.
-    recent_form = forma[:5]
-    form_rate = sum({"V": 1.0, "P": 0.5, "S": 0.0}[value] for value in recent_form) / len(recent_form) if recent_form else 0.5
-    stat_val = int(round(45 + 54 * form_rate))
-
-    # ELO: Overall ELO stat
-    stat_elo = ovr
-
-    # AFF: Affidabilità Presenze (Percentuale rispetto alle partite totali registrate)
-    tot_partite = len(df_partite) if not df_partite.empty else 1
-    aff_rate = (pg / tot_partite) if tot_partite > 0 else 0.0
-    stat_aff = max(45, min(99, int(round(50 + (aff_rate * 49.0)))))
-
+    overall = _period_rating(records)
+    recent = _period_rating(records[:OVR_RECENT_MATCHES])
+    pg = len(records)
+    ovr = int(round(0.80 * overall["ovr"] + 0.20 * recent["ovr"])) if pg else None
+    attributes = {key: int(round(score)) if score is not None else None
+                  for key, score in overall["scores"].items()}
+    attributes["FRM"] = int(round(recent["ovr"])) if pg else None
+    wins = sum(row["result"] == "V" for row in records)
     return {
-        "giocatore": clean_name,
-        "ovr": ovr,
-        "elo": round(p_elo, 1),
-        "pg": pg,
-        "vittorie": v,
-        "pareggi": p,
-        "sconfitte": s,
-        "win_rate": win_rate,
-        "gol_totali": gol_segnati,
-        "media_gol": media_gol,
-        "titoli_mvp": titoli_mvp,
-        "titoli_peggiore": titoli_peggiore,
-        "media_voto": media_voto,
-        "forma": forma,
-        "attributes": {
-            "VIT": stat_vit,
-            "GOL": stat_gol,
-            "MVP": stat_mvp,
-            "FRM": stat_val,
-            "ELO": stat_elo,
-            "AFF": stat_aff
-        }
+        "giocatore": clean_name, "ovr": ovr, "elo": round(p_elo, 1),
+        "pg": pg, "vittorie": wins,
+        "pareggi": sum(row["result"] == "P" for row in records),
+        "sconfitte": sum(row["result"] == "S" for row in records),
+        "win_rate": round(100 * wins / pg, 1) if pg else 0.0,
+        "punti": sum(row["points"] for row in records),
+        "gol_totali": sum(row["goals"] for row in records),
+        "media_gol": round(overall["goals_per_match"], 2),
+        "titoli_mvp": overall["mvp_titles"],
+        "titoli_peggiore": sum(row["worst"] for row in records),
+        "media_voto": None, "forma": [row["result"] for row in records],
+        "attributes": attributes, "provisional": 0 < pg < OVR_RECENT_MATCHES,
+        "ovr_details": {"overall": overall, "recent": recent,
+                        "goal_reference": OVR_GOALS_REFERENCE, "weights": dict(OVR_WEIGHTS)},
     }
 
 
@@ -995,50 +956,28 @@ def calculate_radar_metrics(
     elo_ratings: Optional[Dict[str, float]] = None,
     giocatori_filtrati: Optional[List[str]] = None
 ) -> Dict[str, Any]:
-    """
-    Calcola le metriche polari per il Radar Chart Plotly:
-    - Valori del giocatore selezionato (scala 0-100)
-    - Valori medi dell'intero gruppo di riferimento per il benchmark
-    """
+    """Compare the agreed OVR indices with players who have actually played."""
     p_stats = calculate_player_fifa_stats(
         player_name, df_giocatori, df_partite, df_voti, elo_ratings, giocatori_filtrati
     )
-
-    # Elenco tutti i giocatori del gruppo di riferimento
-    if giocatori_filtrati:
+    if giocatori_filtrati is not None:
         all_players = list(giocatori_filtrati)
     elif not df_giocatori.empty and "nome_completo" in df_giocatori.columns:
         all_players = sorted(df_giocatori["nome_completo"].dropna().unique().tolist())
     else:
         all_players = [player_name]
-
-    # Calcolo attributi di tutti per la media
-    all_attrs: Dict[str, List[int]] = {"VIT": [], "GOL": [], "MVP": [], "FRM": [], "ELO": [], "AFF": []}
-    for p in all_players:
-        st = calculate_player_fifa_stats(p, df_giocatori, df_partite, df_voti, elo_ratings, giocatori_filtrati)
-        for k, v in st["attributes"].items():
-            all_attrs[k].append(v)
-
-    avg_attrs = {k: round(sum(v) / len(v), 1) if v else 70.0 for k, v in all_attrs.items()}
-
-    categories = [
-        "Vittorie (VIT)",
-        "Marcature (GOL)",
-        "Decisività (MVP)",
-        "Forma recente (FRM)",
-        "Rating (ELO)",
-        "Presenze (AFF)"
-    ]
-
-    keys = ["VIT", "GOL", "MVP", "FRM", "ELO", "AFF"]
-    player_values = [p_stats["attributes"][k] for k in keys]
-    avg_values = [avg_attrs[k] for k in keys]
-
+    keys = ["GOL", "RIS", "MVP", "FRM"]
+    all_attrs = {key: [] for key in keys}
+    for name in all_players:
+        stats = calculate_player_fifa_stats(name, df_giocatori, df_partite, df_voti, elo_ratings, giocatori_filtrati)
+        if stats["pg"]:
+            for key in keys:
+                all_attrs[key].append(stats["attributes"][key])
+    avg_attrs = {key: round(sum(values) / len(values), 1) if values else None
+                 for key, values in all_attrs.items()}
     return {
-        "categories": categories,
-        "player_values": player_values,
-        "avg_values": avg_values,
-        "player_stats": p_stats,
-        "avg_stats": avg_attrs
+        "categories": ["Gol · 45%", "Risultati · 45%", "MVP · 10%", "Rendimento recente"],
+        "player_values": [p_stats["attributes"][key] for key in keys] if p_stats["pg"] else [],
+        "avg_values": [avg_attrs[key] for key in keys] if p_stats["pg"] else [],
+        "player_stats": p_stats, "avg_stats": avg_attrs,
     }
-

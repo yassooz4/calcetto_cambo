@@ -22,6 +22,14 @@ Applicazione web professionale e mobile-first, sviluppata con **Streamlit**, **P
 - **⚽ Classifica Marcatori:**
   - Conteggio rigoroso dei soli gol individuali realizzati (esclusi gli assist).
   - Metriche: Gol Totali, Partite Giocate (PG), Media Gol a Partita.
+- **🎴 OVR delle carte — Rating Cambo:**
+  - `OVR = round(0.80 × rendimento complessivo + 0.20 × rendimento ultime 5 partite giocate)`.
+  - Entrambi i rendimenti usano gli stessi pesi: `45% GOL + 45% RIS + 10% MVP`, con precisione completa fino all'arrotondamento dell'OVR finale.
+  - Indici sulla scala 50–99: `GOL = 50 + 49 × min(media gol / 3.5, 1)`; `RIS = 50 + 49 × punti / (3 × partite giocate)`; `MVP = 50 + 49 × titoli / partite con risultato MVP pubblicato`. Vittoria 3 punti, pareggio 1, sconfitta 0. Il riferimento di 3,5 gol è una regola scelta per questa scala, non uno standard statistico.
+  - Le votazioni aperte non entrano nel denominatore MVP; in assenza di risultati pubblicati l'indice resta al valore base 50, senza bonus. I titoli ex aequo e quelli storici conservati sono inclusi.
+  - Senza partite la carta mostra “Non ancora valutato” e nessun numero inventato. Con meno di 5 presenze l'OVR è provvisorio; questa è una soglia di presentazione e non una certificazione di affidabilità statistica.
+  - Il filtro della cerchia si applica a tutti i dati, inclusi i titoli MVP. La media del radar esclude chi non ha giocato nel periodo selezionato.
+  - ELO, presenze, titoli di peggiore e assist non fanno parte dell'OVR. Le formazioni mostrano lo stesso OVR delle carte; il bilanciamento continua a usare l'ELO.
 - **🔥 Strisce di Vittorie Consecutive:**
   - Tracciamento della striscia vincente attualmente **aperta** e del **record storico personale**.
 - **🤝 Coppie d'Oro & ⚔️ Rivali:**
@@ -134,7 +142,7 @@ streamlit run app.py
 ## Verifiche
 
 ```bash
-python -m unittest -q test_voting.py test_voting_ui.py
+python -m unittest -q test_voting.py test_voting_ui.py test_ovr.py test_ovr_ui.py
 ```
 
 I test usano giocatori fittizi e archivi isolati; non accedono ai dati di produzione.

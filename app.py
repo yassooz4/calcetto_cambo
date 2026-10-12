@@ -287,7 +287,7 @@ def view_dashboard(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame, df_voti
     # TAB 6: SCHEDA SINGOLO GIOCATORE (FUT CARD & RADAR CHART)
     with tab_spotlight:
         st.markdown("### 🎴 Scheda Giocatore & FUT Ultimate Card")
-        st.caption("Visualizzazione stile EA Sports FC con Overall Rating (OVR), 6 attributi chiave e confronto radar.")
+        st.caption("OVR: 45% gol, 45% risultati e 10% MVP · 80% rendimento complessivo e 20% ultime cinque partite.")
         lista_giocatori = sorted(df_giocatori["nome_completo"].dropna().unique().tolist()) if not df_giocatori.empty else []
         
         if not lista_giocatori:
@@ -308,9 +308,10 @@ def view_dashboard(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame, df_voti
 
                 with col_fut:
                     ui_components.render_fut_card(selected_player, fifa_stats, is_cerchia=is_in_cerchia)
+                    ui_components.render_ovr_breakdown(fifa_stats)
 
                 with col_radar:
-                    st.markdown("#### 📊 Radar Bilanciamento Abilità (vs Media)")
+                    st.markdown("#### 📊 Rendimento (vs Media Giocatori Attivi)")
                     ui_components.render_player_radar_chart(selected_player, radar_data)
 
                     st.markdown("#### 🏃 Forma Recente (Ultime sfide)")
@@ -599,7 +600,7 @@ def view_gruppo_ristretto(
     # TAB 6: SCHEDA MEMBRO (FUT CARD & RADAR CERCHIA)
     with tab_spot_g:
         st.markdown("### 🎴 Scheda Membro Cerchia & FUT Ultimate Card")
-        st.caption("Analisi prestazionale del membro della cerchia ristretta con Overall Rating, 6 attributi FIFA e radar di confronto.")
+        st.caption("OVR: 45% gol, 45% risultati e 10% MVP · 80% rendimento complessivo e 20% ultime cinque partite.")
         selected_member = st.selectbox("Seleziona un membro del gruppo:", options=gruppo_names, key="spotlight_member_sel")
 
         if selected_member:
@@ -614,9 +615,10 @@ def view_gruppo_ristretto(
 
             with col_fut_g:
                 ui_components.render_fut_card(selected_member, fifa_stats_g, is_cerchia=True)
+                ui_components.render_ovr_breakdown(fifa_stats_g)
 
             with col_radar_g:
-                st.markdown("#### 📊 Radar Rendimento (vs Media Cerchia)")
+                st.markdown("#### 📊 Rendimento (vs Media Membri Attivi)")
                 ui_components.render_player_radar_chart(selected_member, radar_data_g)
 
                 st.markdown("#### 🏃 Forma Recente (Partite Cerchia)")
@@ -642,7 +644,8 @@ def view_gruppo_ristretto(
 def view_generatore_squadre(
     df_giocatori: pd.DataFrame,
     df_partite: pd.DataFrame,
-    is_admin: bool
+    is_admin: bool,
+    df_voti: pd.DataFrame = None
 ):
     st.markdown("<div class='main-title'>⚖️ Generatore Automatico Squadre Equilibrate</div>", unsafe_allow_html=True)
     st.markdown("<div class='sub-title'>Seleziona 10 giocatori e genera due squadre equilibrate con l'algoritmo ELO</div>", unsafe_allow_html=True)
@@ -686,7 +689,10 @@ def view_generatore_squadre(
         st.markdown("#### 📋 Schieramento Tattico 2D & Bilanciamento Ottimale")
         
         # Rendering Campo da Calcio 2D
-        ui_components.render_tactical_pitch(res["team_a"], res["team_b"], elo_ratings)
+        player_ovrs = {name: logic.calculate_player_fifa_stats(name, df_giocatori, df_partite, df_voti, elo_ratings)["ovr"]
+                       for name in res["team_a"] + res["team_b"]}
+        ui_components.render_tactical_pitch(res["team_a"], res["team_b"], elo_ratings, player_ovrs=player_ovrs)
+        st.caption("I numeri sul campo sono gli OVR delle carte. Il bilanciamento delle squadre usa l'ELO.")
         
         b_col1, b_col2 = st.columns(2)
         with b_col1:
@@ -1308,7 +1314,7 @@ def main():
     elif scelta_menu == "🏆 Classifica Amici (Gruppo Ristretto)":
         view_gruppo_ristretto(df_giocatori, df_partite, df_voti, storage_source, is_admin)
     elif scelta_menu == "⚖️ Generatore Automatico Squadre Equilibrate":
-        view_generatore_squadre(df_giocatori, df_partite, is_admin)
+        view_generatore_squadre(df_giocatori, df_partite, is_admin, df_voti=df_voti)
     elif scelta_menu == "👑 MVP & Peggiore":
         view_pagelle(df_giocatori, df_partite, df_voti, is_admin)
     elif scelta_menu == "➕ Aggiungi Nuova Partita":
