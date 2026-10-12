@@ -17,6 +17,8 @@ import streamlit as st
 import logic
 import storage
 import ui_components
+import voting
+from voting_ui import render_votes, render_passwords
 
 # ==============================================================================
 # 1. CONFIGURAZIONE PAGINA & INIEZIONE DESIGN SYSTEM GLOBALE
@@ -36,30 +38,41 @@ ui_components.inject_custom_theme()
 # 2. SISTEMA DI AUTENTICAZIONE & CONTROLLO ACCESSI (PIN GATE)
 # ==============================================================================
 PIN_VIEWER = "5678"
-PIN_ADMIN = "8765"
 
 def render_pin_gate():
     """Mostra la schermata di login con verifica PIN interattiva in stile Apple iOS Lockscreen Keypad."""
     # Recupero stato persistenza per indicatore card e diagnostica
     _, _, _, _, storage_source, storage_error = storage.load_data()
 
-    entered_pin = ui_components.render_ios_pin_keypad(
-        admin_pin=PIN_ADMIN,
-        viewer_pin=PIN_VIEWER,
+    pin_event = ui_components.render_ios_pin_keypad(
         title="Inserisci il codice PIN",
         subtitle="4 digit code per sbloccare l'applicazione",
-        storage_source=storage_source
+        storage_source=storage_source,
+        error_msg=st.session_state.get("pin_error", "")
     )
     
-    if entered_pin:
-        if entered_pin == PIN_ADMIN:
-            st.session_state["authenticated"] = True
-            st.session_state["user_role"] = "admin"
-            st.rerun()
-        elif entered_pin == PIN_VIEWER:
-            st.session_state["authenticated"] = True
-            st.session_state["user_role"] = "viewer"
-            st.rerun()
+    if pin_event and pin_event["nonce"] != st.session_state.get("last_pin_event"):
+        st.session_state["last_pin_event"] = pin_event["nonce"]
+        entered_pin = pin_event["pin"]
+        try:
+            voting.check_attempts("app")
+            secret_pin = voting.admin_pin()
+            if secret_pin and voting.hmac.compare_digest(entered_pin, secret_pin):
+                st.session_state["authenticated"] = True
+                st.session_state["user_role"] = "admin"
+                st.session_state["admin_signature"] = voting.admin_signature()
+            elif voting.hmac.compare_digest(entered_pin, PIN_VIEWER):
+                st.session_state["authenticated"] = True
+                st.session_state["user_role"] = "viewer"
+                st.session_state.pop("admin_signature", None)
+            else:
+                voting.failed_attempt("app")
+                raise voting.VotingError("Passcode non valido")
+        except voting.VotingError as error:
+            st.session_state["pin_error"] = str(error)
+        else:
+            st.session_state.pop("pin_error", None)
+        st.rerun()
 
     # Diagnostica di connessione Google Sheets (solo in caso di fallback o errore)
     if storage_error and storage_source != "Google Sheets (Cloud)":
@@ -120,7 +133,7 @@ def view_dashboard(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame, df_voti
             df_display["Cerchia"] = df_display["Giocatore"].apply(lambda x: "⭐ Cerchia" if x in gruppo_set else "—")
             df_display["% Vittoria"] = df_display["% Vittoria"].apply(lambda x: f"{x:.1f}%")
             
-            cols = ["Pos.", "Giocatore", "Cerchia", "Punti", "PG", "V", "P", "S", "% Vittoria", "ELO", "Titoli MVP", "Titoli Peggiore", "Media Voto"]
+            cols = ["Pos.", "Giocatore", "Cerchia", "Punti", "PG", "V", "P", "S", "% Vittoria", "ELO", "Titoli MVP", "Titoli Peggiore"]
             st.dataframe(
                 df_display[cols],
                 use_container_width=True,
@@ -138,7 +151,6 @@ def view_dashboard(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame, df_voti
                     "ELO": st.column_config.NumberColumn("Rating ELO ⚡", help="Punteggio ELO dinamico (Inizio 1500)"),
                     "Titoli MVP": st.column_config.NumberColumn("👑 MVP", help="Titoli MVP conquistati"),
                     "Titoli Peggiore": st.column_config.NumberColumn("🧊 Peggiore", help="Menzioni peggiore in campo"),
-                    "Media Voto": st.column_config.NumberColumn("⭐ Media Voto", help="Media complessiva voti ricevuti", format="%.2f"),
                 }
             )
 
@@ -437,7 +449,7 @@ def view_gruppo_ristretto(
             df_disp_g["Pos."] = range(1, len(df_disp_g) + 1)
             df_disp_g["% Vittoria"] = df_disp_g["% Vittoria"].apply(lambda x: f"{x:.1f}%")
             
-            cols = ["Pos.", "Giocatore", "Punti", "PG", "V", "P", "S", "% Vittoria", "ELO", "Titoli MVP", "Titoli Peggiore", "Media Voto"]
+            cols = ["Pos.", "Giocatore", "Punti", "PG", "V", "P", "S", "% Vittoria", "ELO", "Titoli MVP", "Titoli Peggiore"]
             st.dataframe(
                 df_disp_g[cols],
                 use_container_width=True,
@@ -454,7 +466,6 @@ def view_gruppo_ristretto(
                     "ELO": st.column_config.NumberColumn("Rating ELO ⚡", help="Rating ELO dinamico"),
                     "Titoli MVP": st.column_config.NumberColumn("👑 MVP", help="Titoli MVP conquistati"),
                     "Titoli Peggiore": st.column_config.NumberColumn("🧊 Peggiore", help="Menzioni peggiore in campo"),
-                    "Media Voto": st.column_config.NumberColumn("⭐ Media Voto", help="Media complessiva voti ricevuti", format="%.2f"),
                 }
             )
 
@@ -714,287 +725,8 @@ def view_generatore_squadre(
 # ==============================================================================
 # 5. VISTA C: PAGELLE POST-PARTITA, REGISTRO VOTI & ELEZIONE MVP
 # ==============================================================================
-def view_pagelle(
-    df_giocatori: pd.DataFrame, 
-    df_partite: pd.DataFrame, 
-    df_voti: pd.DataFrame, 
-    is_admin: bool
-):
-    st.markdown("<div class='main-title'>⭐ Pagelle & Elezione MVP</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-title'>Vota le prestazioni dei compagni di squadra, consulta il registro storico dei voti ed eleggi l'MVP del match</div>", unsafe_allow_html=True)
-
-    if df_partite.empty:
-        st.info("Nessuna partita disputata nello storico per cui assegnare voti.")
-        return
-
-    tab_vota, tab_registro, tab_mvp_season = st.tabs([
-        "⭐ Pagelle Partita & Voto",
-        "📜 Registro Storico Voti",
-        "👑 Classifica MVP Stagione"
-    ])
-
-    # --------------------------------------------------------------------------
-    # TAB 1: PAGELLE DELLA SINGOLA PARTITA & INSERIMENTO VOTI
-    # --------------------------------------------------------------------------
-    with tab_vota:
-        # Selettore partita
-        opzioni_partite = {}
-        for _, m in df_partite.sort_values(by=["data", "id_partita"], ascending=[False, False]).iterrows():
-            id_p = m.get("id_partita", "")
-            d = m.get("data", "")
-            g_a = m.get("gol_squadra_a", 0)
-            g_b = m.get("gol_squadra_b", 0)
-            lbl = f"Partita #{id_p} del {d} ({g_a} - {g_b})"
-            opzioni_partite[lbl] = id_p
-
-        scelta_p = st.selectbox("Seleziona la partita da esaminare:", options=list(opzioni_partite.keys()), key="pagelle_match_sel")
-        selected_id_partita = opzioni_partite[scelta_p]
-
-        # Dettagli partita
-        match_row = df_partite[df_partite["id_partita"] == selected_id_partita].iloc[0]
-        sq_a = [p.strip() for p in str(match_row.get("squadra_a_giocatori", "")).split(",") if p.strip()]
-        sq_b = [p.strip() for p in str(match_row.get("squadra_b_giocatori", "")).split(",") if p.strip()]
-        tutti_partecipanti = sorted(list(set(sq_a + sq_b)))
-
-        # Calcolo valutazioni partita
-        eval_res = logic.calculate_match_ratings(df_voti, selected_id_partita)
-
-        st.markdown("---")
-
-        # Resoconto Automatico MVP & Peggiore
-        if eval_res["has_votes"]:
-            c_mvp, c_worst = st.columns(2)
-            with c_mvp:
-                if eval_res["mvp"]:
-                    ui_components.render_html(f"""
-                    <div class="card-mvp">
-                        <div style="font-size: 2.2rem; margin-bottom: 5px;">👑</div>
-                        <h3 style="color: #fbbf24; margin: 0;">MVP DELLA PARTITA</h3>
-                        <h2 style="color: #ffffff; margin: 6px 0;">{eval_res['mvp']['giocatore']}</h2>
-                        <p style="font-size: 1.15rem; color: #38bdf8; margin: 0;"><b>Media Voto: {eval_res['mvp']['media']} / 10</b></p>
-                        <span style="font-size: 0.85rem; color: #94a3b8;">({eval_res['mvp']['voti_ricevuti']} valutazioni ricevute)</span>
-                    </div>
-                    """)
-
-            with c_worst:
-                if eval_res["worst"] and eval_res["worst"]["giocatore"] != eval_res["mvp"]["giocatore"]:
-                    ui_components.render_html(f"""
-                    <div class="card-worst">
-                        <div style="font-size: 2.2rem; margin-bottom: 5px;">🧊</div>
-                        <h3 style="color: #ef4444; margin: 0;">MENZIONE PEGGIORE</h3>
-                        <h2 style="color: #ffffff; margin: 6px 0;">{eval_res['worst']['giocatore']}</h2>
-                        <p style="font-size: 1.15rem; color: #f87171; margin: 0;"><b>Media Voto: {eval_res['worst']['media']} / 10</b></p>
-                        <span style="font-size: 0.85rem; color: #94a3b8;">({eval_res['worst']['voti_ricevuti']} valutazioni ricevute)</span>
-                    </div>
-                    """)
-
-            # Tabella Pagelle Medie
-            st.markdown("#### 📊 Medie Voto Giocatori")
-            st.dataframe(
-                eval_res["ratings"],
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Giocatore": st.column_config.TextColumn("Giocatore", width="medium"),
-                    "Media Voto": st.column_config.NumberColumn("⭐ Media Voto", format="%.2f"),
-                    "Numero Voti": st.column_config.NumberColumn("N° Voti"),
-                    "Min": st.column_config.NumberColumn("Min"),
-                    "Max": st.column_config.NumberColumn("Max"),
-                }
-            )
-
-            # Commenti ricevuti
-            if eval_res["comments"]:
-                st.markdown("#### 💬 Commenti e Pagelle della Community")
-                for c in eval_res["comments"]:
-                    ui_components.render_html(f"""
-                    <div class="glass-card" style="padding: 10px 14px; margin-bottom: 8px;">
-                        <b>{c['votante']}</b> su <b>{c['giocatore']}</b> (Voto: <span style="color: #fbbf24; font-weight: bold;">{c['voto']}</span>):<br>
-                        <span style="color: #cbd5e1; font-style: italic;">"{c['commento']}"</span>
-                    </div>
-                    """)
-        else:
-            st.info("Nessuna votazione ancora inserita per questa partita. Compila le pagelle qui sotto per eleggere l'MVP!")
-
-        st.markdown("---")
-
-        # Form di Votazione Post-Partita
-        st.markdown("### 📝 Compila la tua Pagella")
-        lista_tutti_giocatori = sorted(df_giocatori["nome_completo"].dropna().unique().tolist()) if not df_giocatori.empty else []
-
-        with st.form("form_voti_partita", clear_on_submit=False):
-            votante = st.selectbox("Chi sta votando? (Seleziona il tuo nome):", options=lista_tutti_giocatori, key="votante_select")
-            
-            st.markdown("##### Assegna voto e commento ai protagonisti del match:")
-            
-            voti_input = {}
-            commenti_input = {}
-
-            for p in tutti_partecipanti:
-                col_v1, col_v2 = st.columns([1, 2])
-                with col_v1:
-                    voti_input[p] = st.slider(f"Voto per **{p}**", min_value=1.0, max_value=10.0, value=6.0, step=0.5, key=f"voto_{p}")
-                with col_v2:
-                    commenti_input[p] = st.text_input(f"Commento per {p}", placeholder="es. Impeccabile in difesa", key=f"comm_{p}")
-
-            submit_pagella = st.form_submit_button("🗳️ Invia Pagella e Salva Valutazioni", use_container_width=True, type="primary")
-
-            if submit_pagella:
-                nuovi_voti_list = []
-                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-                # ID progressivo
-                next_id = 1
-                if not df_voti.empty and "id_voto" in df_voti.columns:
-                    next_id = int(df_voti["id_voto"].max()) + 1
-
-                for p in tutti_partecipanti:
-                    v = voti_input[p]
-                    comm = commenti_input[p].strip()
-                    nuovi_voti_list.append({
-                        "id_voto": next_id,
-                        "id_partita": int(selected_id_partita),
-                        "votante": votante,
-                        "giocatore": p,
-                        "voto": float(v),
-                        "commento": comm,
-                        "timestamp": now_str
-                    })
-                    next_id += 1
-
-                df_updated_voti = pd.concat([df_voti, pd.DataFrame(nuovi_voti_list)], ignore_index=True)
-                storage.save_voti(df_updated_voti)
-                st.success("✅ Pagella inviata con successo! I voti e le medie sono stati ricalcolati.")
-                st.rerun()
-
-    # --------------------------------------------------------------------------
-    # TAB 2: REGISTRO STORICO COMPLETO DEI VOTI & MODERAZIONE ADMIN
-    # --------------------------------------------------------------------------
-    with tab_registro:
-        st.markdown("### 📜 Registro Storico Completo dei Voti Espressi")
-        st.caption("Archivio dettagliato di tutte le singole votazioni registrate nel sistema.")
-
-        # Pannello Moderazione Voti (Admin Only)
-        if is_admin:
-            with st.expander("🛡️ Pannello di Moderazione & Cancellazione Voti (Solo Admin)", expanded=False):
-                st.caption("Elimina singoli voti errati/fasulli o ripulisci le votazioni di un intero match. L'eliminazione ricalcola istantaneamente le medie e i titoli MVP.")
-                
-                if df_voti.empty:
-                    st.info("Nessun voto presente nel database da moderare.")
-                else:
-                    col_mod1, col_mod2 = st.columns(2)
-                    
-                    # 1. Cancellazione Singolo Voto
-                    with col_mod1:
-                        st.markdown("##### 🗑️ Elimina Singolo Voto")
-                        opzioni_voti_dict = {}
-                        for _, v_row in df_voti.sort_values(by=["id_voto"], ascending=False).iterrows():
-                            v_id = int(v_row.get("id_voto", 0))
-                            p_id = v_row.get("id_partita", "")
-                            vot = v_row.get("votante", "")
-                            gio = v_row.get("giocatore", "")
-                            val = v_row.get("voto", "")
-                            t_stamp = str(v_row.get("timestamp", ""))[:16]
-                            label_v = f"Voto #{v_id} [Match #{p_id}] - Da: {vot} ➔ A: {gio} ({val}) ({t_stamp})"
-                            opzioni_voti_dict[label_v] = v_id
-                        
-                        voto_scelto_str = st.selectbox("Seleziona il voto da eliminare:", options=list(opzioni_voti_dict.keys()), key="select_del_voto_admin")
-                        id_voto_da_eliminare = opzioni_voti_dict[voto_scelto_str]
-                        
-                        # Mostra dettagli del voto selezionato
-                        voto_dettaglio = df_voti[df_voti["id_voto"] == id_voto_da_eliminare].iloc[0]
-                        comm_txt = voto_dettaglio.get("commento", "")
-                        if comm_txt:
-                            st.caption(f"💬 Commento associato: *\"{comm_txt}\"*")
-
-                        if st.button("🗑️ Elimina Voto Selezionato", type="primary", use_container_width=True, key="btn_del_single_voto"):
-                            storage.delete_voto(id_voto_da_eliminare)
-                            st.success(f"✅ Voto #{id_voto_da_eliminare} eliminato con successo! Medie ricalcolate.")
-                            st.rerun()
-
-                    # 2. Cancellazione Voti per Partita
-                    with col_mod2:
-                        st.markdown("##### 🧹 Ripulisci Voti di una Partita")
-                        opzioni_partite_voti = sorted(df_voti["id_partita"].unique().tolist())
-                        partita_da_pulire = st.selectbox("Seleziona la partita da ripulire:", options=opzioni_partite_voti, key="select_del_voti_match_admin")
-                        voti_partita_count = len(df_voti[df_voti["id_partita"] == partita_da_pulire])
-                        st.caption(f"Voti registrati per Partita #{partita_da_pulire}: **{voti_partita_count}**")
-
-                        if st.button(f"🧹 Elimina tutti i {voti_partita_count} voti di Partita #{partita_da_pulire}", use_container_width=True, key="btn_del_match_voti"):
-                            storage.delete_voti_partita(partita_da_pulire)
-                            st.success(f"✅ Tutti i voti della Partita #{partita_da_pulire} sono stati eliminati!")
-                            st.rerun()
-
-            st.markdown("---")
-
-        # Visualizzazione Tabella Voti
-        if df_voti.empty:
-            st.info("Nessun voto registrato finora.")
-        else:
-            # Creazione vista arricchita con data partita se disponibile
-            df_voti_view = df_voti.copy()
-            if not df_partite.empty and "id_partita" in df_partite.columns and "data" in df_partite.columns:
-                date_map = dict(zip(df_partite["id_partita"], df_partite["data"]))
-                df_voti_view["Data Match"] = df_voti_view["id_partita"].map(date_map).fillna("N/D")
-            else:
-                df_voti_view["Data Match"] = "N/D"
-
-            df_voti_view = df_voti_view.sort_values(by=["id_voto"], ascending=False).reset_index(drop=True)
-
-            # Filtri consultazione
-            c_f1, c_f2 = st.columns(2)
-            with c_f1:
-                filtro_giocatore_voti = st.selectbox("Filtra per Giocatore Votato:", options=["Tutti"] + sorted(df_voti_view["giocatore"].dropna().unique().tolist()), key="filtro_gio_voti")
-            with c_f2:
-                filtro_partita_voti = st.selectbox("Filtra per Partita:", options=["Tutte"] + [f"Partita #{p}" for p in sorted(df_voti_view["id_partita"].unique().tolist())], key="filtro_match_voti")
-
-            if filtro_giocatore_voti != "Tutti":
-                df_voti_view = df_voti_view[df_voti_view["giocatore"] == filtro_giocatore_voti]
-            if filtro_partita_voti != "Tutte":
-                p_id_filter = int(filtro_partita_voti.replace("Partita #", ""))
-                df_voti_view = df_voti_view[df_voti_view["id_partita"] == p_id_filter]
-
-            cols_reg = ["id_voto", "id_partita", "Data Match", "votante", "giocatore", "voto", "commento", "timestamp"]
-            st.dataframe(
-                df_voti_view[cols_reg],
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "id_voto": st.column_config.NumberColumn("ID Voto", width="small"),
-                    "id_partita": st.column_config.NumberColumn("Partita #", width="small"),
-                    "Data Match": st.column_config.TextColumn("Data Match", width="small"),
-                    "votante": st.column_config.TextColumn("Votante", width="medium"),
-                    "giocatore": st.column_config.TextColumn("Giocatore Votato", width="medium"),
-                    "voto": st.column_config.NumberColumn("Voto", format="%.1f"),
-                    "commento": st.column_config.TextColumn("Commento", width="large"),
-                    "timestamp": st.column_config.TextColumn("Data/Ora Invio", width="medium"),
-                }
-            )
-
-    # --------------------------------------------------------------------------
-    # TAB 3: CLASSIFICA MVP STAGIONALE
-    # --------------------------------------------------------------------------
-    with tab_mvp_season:
-        st.markdown("### 👑 Classifica Stagionale MVP")
-        st.caption("Riepilogo generale dei titoli MVP conquistati e delle valutazioni medie stagionali.")
-        df_season_mvp = logic.calculate_season_mvp_leaderboard(df_partite, df_voti)
-
-        if df_season_mvp.empty:
-            st.info("Nessuna valutazione registrata per stilare la classifica stagionale.")
-        else:
-            df_season_mvp["Pos."] = range(1, len(df_season_mvp) + 1)
-            st.dataframe(
-                df_season_mvp[["Pos.", "Giocatore", "Titoli MVP", "Media Voto Stagionale", "Voti Ricevuti"]],
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Pos.": st.column_config.NumberColumn("Pos.", width="small"),
-                    "Giocatore": st.column_config.TextColumn("Giocatore", width="medium"),
-                    "Titoli MVP": st.column_config.NumberColumn("👑 Titoli MVP", help="Numero di volte MVP"),
-                    "Media Voto Stagionale": st.column_config.NumberColumn("⭐ Media Voto", format="%.2f"),
-                    "Voti Ricevuti": st.column_config.NumberColumn("Voti Totali"),
-                }
-            )
+def view_pagelle(df_giocatori, df_partite, df_voti, is_admin):
+    render_votes(df_giocatori, df_partite, is_admin)
 
 
 # ==============================================================================
@@ -1118,9 +850,11 @@ def view_add_match(
             else:
                 esito = "Pareggio"
 
-            nuovo_id = 1
-            if not df_partite.empty and "id_partita" in df_partite.columns:
-                nuovo_id = int(df_partite["id_partita"].max()) + 1
+            try:
+                nuovo_id = voting.next_identifier(df_partite, "id_partita", "match_id")
+            except voting.VotingError as error:
+                st.error(str(error))
+                return
 
             marcatori_json = logic.serialize_marcatori(marcatori_dict)
 
@@ -1181,9 +915,11 @@ def view_anagrafica(
                     if nome_clean.lower() in nomi_esistenti:
                         st.error(f"❌ Esiste già un giocatore registrato con il nome '{nome_clean}'.")
                     else:
-                        nuovo_id = 1
-                        if not df_giocatori.empty and "id_giocatore" in df_giocatori.columns:
-                            nuovo_id = int(df_giocatori["id_giocatore"].max()) + 1
+                        try:
+                            nuovo_id = voting.next_identifier(df_giocatori, "id_giocatore", "player_id")
+                        except voting.VotingError as error:
+                            st.error(str(error))
+                            return
 
                         nuova_riga = {
                             "id_giocatore": nuovo_id,
@@ -1471,10 +1207,23 @@ def main():
         render_pin_gate()
         return
 
-    is_admin = (st.session_state.get("user_role") == "admin")
+    if st.session_state.get("user_role") == "admin" and not voting.is_private_admin():
+        st.session_state["authenticated"] = False
+        st.session_state["user_role"] = "viewer"
+        st.session_state.pop("admin_signature", None)
+        st.session_state.pop("voting_identity", None)
+        st.rerun()
+    is_admin = voting.is_private_admin()
 
     # Caricamento Dati
     df_giocatori, df_partite, df_convocazioni, df_voti, storage_source, storage_error = storage.load_data()
+
+    # Only final summaries reach public statistics and match cards.
+    try:
+        df_voti = voting.public_results_frame(df_partite, df_voti)
+    except voting.VotingError as error:
+        st.warning(str(error))
+        df_voti = pd.DataFrame(columns=voting.PUBLIC_COLUMNS)
 
     # Sidebar
     with st.sidebar:
@@ -1502,11 +1251,14 @@ def main():
             "🏆 Tabellone & Classifiche",
             "🏆 Classifica Amici (Gruppo Ristretto)",
             "⚖️ Generatore Automatico Squadre Equilibrate",
-            "⭐ Pagelle & MVP",
+            "👑 MVP & Peggiore",
             "➕ Aggiungi Nuova Partita",
             "👤 Anagrafica Giocatori",
             "📜 Storico Partite"
         ]
+
+        if is_admin:
+            opzioni_menu.append("🔐 Password Giocatori")
 
         target_nav = st.session_state.pop("nav_target", None)
         default_index = opzioni_menu.index(target_nav) if target_nav in opzioni_menu else 0
@@ -1546,6 +1298,8 @@ def main():
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state["authenticated"] = False
             st.session_state["user_role"] = "viewer"
+            st.session_state.pop("admin_signature", None)
+            st.session_state.pop("voting_identity", None)
             st.rerun()
 
     # Router Viste
@@ -1555,10 +1309,12 @@ def main():
         view_gruppo_ristretto(df_giocatori, df_partite, df_voti, storage_source, is_admin)
     elif scelta_menu == "⚖️ Generatore Automatico Squadre Equilibrate":
         view_generatore_squadre(df_giocatori, df_partite, is_admin)
-    elif scelta_menu == "⭐ Pagelle & MVP":
+    elif scelta_menu == "👑 MVP & Peggiore":
         view_pagelle(df_giocatori, df_partite, df_voti, is_admin)
     elif scelta_menu == "➕ Aggiungi Nuova Partita":
         view_add_match(df_giocatori, df_partite, is_admin)
+    elif scelta_menu == "🔐 Password Giocatori" and is_admin:
+        render_passwords(df_giocatori)
     elif scelta_menu == "👤 Anagrafica Giocatori":
         view_anagrafica(df_giocatori, df_partite, is_admin)
     elif scelta_menu == "📜 Storico Partite":
@@ -1567,3 +1323,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

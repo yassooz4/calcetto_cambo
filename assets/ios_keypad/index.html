@@ -494,8 +494,6 @@
     (function () {
       let pinBuffer = "";
       let isBusy = false;
-      let adminPin = "8765";
-      let viewerPin = "5678";
       let errorTimeout = null;
 
       const dots = [
@@ -594,7 +592,12 @@
 
         // Breve ritardo per godere del feedback visivo prima del rerender
         setTimeout(() => {
-          setComponentValue(pin);
+          setComponentValue({pin: pin, nonce: Date.now()});
+          setTimeout(() => {
+            pinBuffer = "";
+            isBusy = false;
+            updateDotsVisual();
+          }, 600);
         }, 120);
       }
 
@@ -611,11 +614,7 @@
         // Al raggiungimento della 4ª cifra: validazione istantanea
         if (pinBuffer.length === 4) {
           const entered = pinBuffer;
-          if (entered === adminPin || entered === viewerPin) {
-            triggerSuccess(entered);
-          } else {
-            triggerShakeError("Passcode non valido");
-          }
+          triggerSuccess(entered);
         }
       }
 
@@ -695,8 +694,6 @@
         if (!data || data.type !== "streamlit:render") return;
 
         const args = data.args || {};
-        if (args.admin_pin) adminPin = String(args.admin_pin);
-        if (args.viewer_pin) viewerPin = String(args.viewer_pin);
         if (args.title) titleEl.innerHTML = args.title;
         if (args.subtitle) subtitleEl.innerHTML = args.subtitle;
         if (args.starball_src) starballImg.src = args.starball_src;
@@ -718,3 +715,4 @@
   </script>
 </body>
 </html>
+

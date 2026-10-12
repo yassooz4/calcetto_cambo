@@ -1,17 +1,16 @@
 # ⚽ Calcetto Stats & Manager - Web Application
 
-Applicazione web professionale e mobile-first, sviluppata con **Streamlit**, **Pandas** e **Google Sheets**, per la gestione completa di statistiche, bilanciamento squadre ELO e pagelle MVP per il calcetto tra amici.
+Applicazione web professionale e mobile-first, sviluppata con **Streamlit**, **Pandas** e **Google Sheets**, per la gestione completa di statistiche, bilanciamento squadre ELO e votazioni riservate MVP e peggiore per il calcetto tra amici.
 
 ---
 
 ## 🌟 Funzionalità Principali
 
-### 1. 🔒 Controllo Accessi basato su PIN (RBAC)
-- **👁️ PIN Sola Lettura (`5678`):**
-  - Accesso completo in sola consultazione a classifiche, rating ELO, marcatori, storico partite, pagelle ed MVP.
-  - Funzioni di modifica, cancellazione e generazione squadre bloccate/nascoste.
-- **🛡️ PIN Amministratore (`8765`):**
-  - Permessi completi: registrazione e cancellazione partite con marcatori individuali, anagrafica giocatori, algoritmo di bilanciamento formazioni e reset dati.
+### 1. 🔒 Accesso e riservatezza
+- **Viewer (`5678`):** consultazione delle statistiche e dei risultati pubblicati. Per votare serve inoltre la password personale del giocatore.
+- **Amministratore:** PIN di 4 cifre configurato nei Secrets di Streamlit (`auth.admin_pin`), verificato esclusivamente sul server. Non usare i precedenti PIN pubblici.
+- **Password giocatori:** 5 cifre, anche con zeri iniziali, 100.000 combinazioni. Codici unici generati nell'app e visibili accanto ai nomi soltanto nella sezione amministrativa Password Giocatori.
+- Il tastierino di ingresso non riceve i PIN validi dal server. Le sessioni amministrative precedenti vengono invalidate quando cambia il PIN.
 
 ---
 
@@ -39,18 +38,36 @@ Applicazione web professionale e mobile-first, sviluppata con **Streamlit**, **P
 
 ---
 
-### 4. ⭐ Pagelle ed Elezione MVP
-- **Votazione Post-Partita:** Assegnazione voto (1-10 con step 0.5) e commento per ciascun giocatore sceso in campo.
-- **Resoconto Automatico:**
-  - 👑 **MVP della Partita** (giocatore con media voto più alta).
-  - 🧊 **Menzione Peggiore in Campo** (giocatore con media voto più bassa).
-  - Feed commenti e pagelle aggregate.
+### 4. 👑 MVP & Peggiore
+- Ogni partecipante accede con la propria password personale. Il server riconosce automaticamente il votante.
+- Due sole scelte: MVP e peggiore, fra i giocatori della partita, escludendo sé stessi. Le due scelte devono essere diverse.
+- Un voto per persona e partita: nuovi invii aggiornano le scelte precedenti, senza duplicare il conteggio.
+- Solo l'amministratore può consultare il registro dei votanti e le loro scelte, il conteggio provvisorio e chi deve ancora votare.
+- L'amministratore chiude manualmente la votazione e pubblica il risultato. Dopo la chiusura i giocatori non possono modificare i voti.
+- In caso di parità, tutti i primi classificati ricevono il titolo ex aequo. Una riapertura ritira il risultato pubblico finché non viene chiusa nuovamente.
+- Le classifiche e lo storico usano esclusivamente i risultati finali. I titoli delle precedenti pagelle numeriche restano nell'archivio finché non viene avviata una nuova votazione per quella partita.
+- Password e schede personali sono cifrate con Fernet nell'archivio Google Sheets. Le scritture sono append-only e serializzate nel singolo processo Streamlit, senza riscrivere l'intero foglio. Se il cloud non risponde, il voto non passa silenziosamente al CSV locale.
+
+### Configurazione prima della pubblicazione
+Aggiungere ai **Secrets di Streamlit Cloud**, senza rimuovere le impostazioni Google esistenti:
+
+```toml
+[auth]
+admin_pin = "NUOVO_PIN_DI_4_CIFRE"
+voting_key = "CHIAVE_FERNET_GENERATA_PRIVATAMENTE"
+```
+
+La chiave può essere generata localmente con `Fernet.generate_key()` dalla libreria cryptography. Conservare una copia privata: cambiarla senza migrare l'archivio rende illeggibili password e voti esistenti. Non inserire credenziali reali in GitHub.
+
+Il foglio `votazioni_private` viene creato automaticamente al primo accesso amministrativo a Password Giocatori; contiene una sola colonna `payload` con eventi cifrati. I dati CSV storici restano invariati. In sviluppo senza Google Sheets, l'archivio cifrato è `data/votazioni_private.jsonl`, escluso da Git.
+
+Prima di unire la modifica a main, impostare entrambi i segreti; altrimenti l'accesso amministratore e le nuove votazioni rimangono disabilitati.
 
 ---
 
 ## 🗄️ Schemi Dati Google Sheets (`calcetto_db`)
 
-Se colleghi l'app a Google Sheets, il foglio deve contenere **4 schede (fogli di lavoro)** con le seguenti colonne:
+Se colleghi l'app a Google Sheets, l'archivio storico contiene **4 schede (fogli di lavoro)**; la nuova scheda privata viene creata automaticamente con le seguenti colonne:
 
 ### 1. Scheda `giocatori`
 | Colonna | Tipo | Descrizione |
@@ -111,4 +128,13 @@ streamlit run app.py
 ```
 
 - **PIN Viewer (Sola Lettura):** `5678`
-- **PIN Amministratore:** `8765`
+- **PIN Amministratore:** il valore privato configurato in `auth.admin_pin`
+
+
+## Verifiche
+
+```bash
+python -m unittest -q test_voting.py test_voting_ui.py
+```
+
+I test usano giocatori fittizi e archivi isolati; non accedono ai dati di produzione.
