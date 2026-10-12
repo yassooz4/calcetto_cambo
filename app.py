@@ -626,263 +626,89 @@ def view_gruppo_ristretto(
 
 
 # ==============================================================================
-# 4. VISTA B: CONVOCAZIONI, PRESENZE & BILANCIAMENTO SQUADRE
+# 4. VISTA B: GENERATORE AUTOMATICO SQUADRE EQUILIBRATE
 # ==============================================================================
-def view_convocazioni(
-    df_giocatori: pd.DataFrame, 
-    df_partite: pd.DataFrame, 
-    df_convocazioni: pd.DataFrame, 
+def view_generatore_squadre(
+    df_giocatori: pd.DataFrame,
+    df_partite: pd.DataFrame,
     is_admin: bool
 ):
-    st.markdown("<div class='main-title'>📅 Convocazioni & Presenze</div>", unsafe_allow_html=True)
-    st.markdown("<div class='sub-title'>Gestisci le presenze per la prossima sfida e genera formazioni equilibrate con l'algoritmo ELO</div>", unsafe_allow_html=True)
+    st.markdown("<div class='main-title'>⚖️ Generatore Automatico Squadre Equilibrate</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-title'>Seleziona 10 giocatori e genera due squadre equilibrate con l'algoritmo ELO</div>", unsafe_allow_html=True)
 
-    # 1. Trova sessione attiva o più recente
-    sessione_attiva = None
-    if not df_convocazioni.empty:
-        # Cerca sessione con stato "Aperta"
-        aperte = df_convocazioni[df_convocazioni["stato"] == "Aperta"]
-        if not aperte.empty:
-            sessione_attiva = aperte.iloc[-1]
-        else:
-            sessione_attiva = df_convocazioni.iloc[-1]
-
-    if sessione_attiva is None:
-        st.info("Nessuna sessione di convocazione attiva.")
-        if is_admin:
-            st.markdown("#### ➕ Crea Nuova Sessione di Convocazione")
-            with st.form("form_nuova_convocazione", clear_on_submit=True):
-                data_match = st.date_input("Data Partita", value=date.today())
-                ora_match = st.time_input("Orario Partita", value=datetime.now().time())
-                luogo_match = st.text_input("Luogo / Campo", value="Campo Comunale (Sintetico)")
-                crea_btn = st.form_submit_button("📢 Apri Sessione Convocazioni", use_container_width=True)
-
-                if crea_btn:
-                    nuovo_id = 1
-                    nuova_riga = {
-                        "id_convocazione": nuovo_id,
-                        "data_partita": data_match.strftime("%Y-%m-%d"),
-                        "ora_partita": ora_match.strftime("%H:%M"),
-                        "luogo": luogo_match.strip(),
-                        "stato": "Aperta",
-                        "presenti": "",
-                        "assenti": ""
-                    }
-                    df_up = pd.DataFrame([nuova_riga])
-                    storage.save_convocazioni(df_up)
-                    st.success("✅ Nuova sessione aperta!")
-                    st.rerun()
-        else:
-            st.warning("🔒 Solo l'amministratore può aprire una nuova sessione di convocazione.")
-        return
-
-    # Estrai dati sessione attiva
-    id_conv = sessione_attiva.get("id_convocazione", 1)
-    data_str = sessione_attiva.get("data_partita", "N/D")
-    ora_str = sessione_attiva.get("ora_partita", "N/D")
-    luogo_str = sessione_attiva.get("luogo", "Campo da Calcetto")
-    stato_str = sessione_attiva.get("stato", "Aperta")
-
-    presenti_raw = [p.strip() for p in str(sessione_attiva.get("presenti", "")).split(",") if p.strip()]
-    assenti_raw = [p.strip() for p in str(sessione_attiva.get("assenti", "")).split(",") if p.strip()]
-
-    num_presenti = len(presenti_raw)
-    target = 10
-    percentuale = min(1.0, num_presenti / target)
-
-    # Box Riepilogo Sessione
-    ui_components.render_html(f"""
-    <div class="glass-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <h3 style="margin: 0; color: #38bdf8;">🗓️ Prossima Partita: {data_str} ore {ora_str}</h3>
-            <span style="background: {'#10b981' if stato_str == 'Aperta' else '#64748b'}; color: white; padding: 3px 10px; border-radius: 12px; font-weight: bold; font-size: 0.8rem;">
-                {stato_str}
-            </span>
-        </div>
-        <p style="margin: 0; color: #94a3b8;">📍 <b>Luogo:</b> {luogo_str}</p>
-    </div>
-    """)
-
-    # Contatore Dinamico Target 10
-    st.markdown(f"#### 🎯 Convocati Confermati: **{num_presenti} / {target}**")
-    st.progress(percentuale)
-
-    if num_presenti == 10:
-        st.success("🎉 **Quota 10 raggiunta!** Il gruppo è completo per il 5 contro 5.")
-    elif num_presenti > 10:
-        st.warning(f"⚠️ Ci sono **{num_presenti}** giocatori confermati (più dei 10 necessari).")
-    else:
-        st.info(f"Mancano ancora **{target - num_presenti}** giocatori per completare il match.")
-
-    # 2. Modulo Presenze per i Giocatori (Tutti possono confermare presenza/assenza)
-    lista_tutti_giocatori = sorted(df_giocatori["nome_completo"].dropna().unique().tolist()) if not df_giocatori.empty else []
-
-    st.markdown("---")
-    st.markdown("### ✍️ Segna la tua Presenza")
-    
-    if not lista_tutti_giocatori:
-        st.info("Nessun giocatore registrato nell'anagrafica.")
-    elif stato_str != "Aperta":
-        st.info("🔒 La sessione di convocazione è attualmente CHIUSA.")
-    else:
-        c_p1, c_p2, c_p3 = st.columns([2, 1, 1])
-        with c_p1:
-            nome_votante = st.selectbox("Seleziona il tuo nome:", options=lista_tutti_giocatori, key="presence_player_select")
-        with c_p2:
-            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-            btn_pres = st.button("✅ Presente", use_container_width=True, type="primary")
-        with c_p3:
-            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-            btn_ass = st.button("❌ Assente", use_container_width=True)
-
-        if btn_pres:
-            if nome_votante in presenti_raw:
-                st.warning(f"Sei già segnato come presente!")
-            else:
-                nuovi_presenti = presenti_raw + [nome_votante]
-                nuovi_assenti = [p for p in assenti_raw if p != nome_votante]
-                
-                # Aggiorna
-                df_up = df_convocazioni.copy()
-                idx_to_mod = df_up[df_up["id_convocazione"] == id_conv].index
-                df_up.loc[idx_to_mod, "presenti"] = ", ".join(nuovi_presenti)
-                df_up.loc[idx_to_mod, "assenti"] = ", ".join(nuovi_assenti)
-                storage.save_convocazioni(df_up)
-                st.success(f"Presenza confermata per **{nome_votante}**!")
-                st.rerun()
-
-        if btn_ass:
-            if nome_votante in assenti_raw:
-                st.warning(f"Sei già segnato come assente!")
-            else:
-                nuovi_assenti = assenti_raw + [nome_votante]
-                nuovi_presenti = [p for p in presenti_raw if p != nome_votante]
-                
-                # Aggiorna
-                df_up = df_convocazioni.copy()
-                idx_to_mod = df_up[df_up["id_convocazione"] == id_conv].index
-                df_up.loc[idx_to_mod, "presenti"] = ", ".join(nuovi_presenti)
-                df_up.loc[idx_to_mod, "assenti"] = ", ".join(nuovi_assenti)
-                storage.save_convocazioni(df_up)
-                st.info(f"Assenza registrata per **{nome_votante}**.")
-                st.rerun()
-
-    # Visualizzazione Elenco Presenti e Assenti
-    col_v_pres, col_v_ass = st.columns(2)
-    with col_v_pres:
-        st.markdown(f"#### 🟢 Presenti ({len(presenti_raw)})")
-        if presenti_raw:
-            for p in presenti_raw:
-                st.write(f"- ⚽ **{p}**")
-        else:
-            st.caption("Nessun presente confermato.")
-
-    with col_v_ass:
-        st.markdown(f"#### 🔴 Assenti ({len(assenti_raw)})")
-        if assenti_raw:
-            for p in assenti_raw:
-                st.write(f"- ❌ {p}")
-        else:
-            st.caption("Nessun assente segnalato.")
-
-    # 3. GENERATORE AUTOMATICO SQUADRE EQUILIBRATE (SOLO ADMIN)
-    st.markdown("---")
-    st.markdown("### ⚖️ Generatore Automatico Squadre Equilibrate")
-    
     if not is_admin:
         st.info("🔒 **Accesso Riservato:** La generazione delle formazioni equilibrate è riservata all'**Amministratore**.")
-    else:
-        st.caption("L'algoritmo combinatorio analizza tutte le 126 possibili suddivisioni dei 10 giocatori convocati per minimizzare lo scarto di forza ELO tra le due squadre.")
-        
-        # Scelta dei 10 giocatori
-        if len(presenti_raw) == 10:
-            selected_ten = presenti_raw
-            st.success(f"Utilizzo automatico dei **10 convocati confermati**.")
+        return
+
+    lista_tutti_giocatori = sorted(df_giocatori["nome_completo"].dropna().unique().tolist()) if not df_giocatori.empty else []
+    if len(lista_tutti_giocatori) < 10:
+        st.info("Servono almeno 10 giocatori nell'anagrafica per generare le squadre.")
+        return
+
+    st.caption("L'algoritmo combinatorio analizza tutte le 126 possibili suddivisioni dei 10 giocatori selezionati per minimizzare lo scarto di forza ELO tra le due squadre.")
+    selected_ten = st.multiselect(
+        "Seleziona 10 giocatori:",
+        options=lista_tutti_giocatori,
+        max_selections=10,
+        key="generator_ten_select"
+    )
+    st.caption(f"Giocatori selezionati: {len(selected_ten)}/10")
+
+    # Invalida le formazioni quando cambia la selezione.
+    previous = st.session_state.get("last_balanced")
+    if previous and set(previous["team_a"] + previous["team_b"]) != set(selected_ten):
+        st.session_state.pop("last_balanced", None)
+
+    if st.button("⚡ Genera Formazioni Equilibrate", type="primary", use_container_width=True):
+        if len(selected_ten) != 10:
+            st.error(f"❌ Devi selezionare esattamente 10 giocatori (attualmente selezionati: {len(selected_ten)}).")
         else:
-            st.write("Seleziona manualmente i 10 giocatori da dividere:")
-            selected_ten = st.multiselect(
-                "Seleziona 10 giocatori:",
-                options=lista_tutti_giocatori,
-                default=presenti_raw[:10] if len(presenti_raw) >= 10 else presenti_raw,
-                max_selections=10,
-                key="manual_ten_select"
-            )
-
-        if st.button("⚡ Genera Formazioni Equilibrate", type="primary", use_container_width=True):
-            if len(selected_ten) != 10:
-                st.error(f"❌ Devi selezionare esattamente 10 giocatori (attualmente selezionati: {len(selected_ten)}).")
-            else:
-                elo_ratings, _ = logic.calculate_elo_ratings(df_giocatori, df_partite)
-                balanced = logic.balance_teams(selected_ten, elo_ratings)
-                
-                st.session_state["last_balanced"] = balanced
-                st.session_state["balanced_match_data"] = data_str
-
-        if "last_balanced" in st.session_state and st.session_state["last_balanced"]:
-            res = st.session_state["last_balanced"]
             elo_ratings, _ = logic.calculate_elo_ratings(df_giocatori, df_partite)
+            balanced = logic.balance_teams(selected_ten, elo_ratings)
             
-            st.markdown("#### 📋 Schieramento Tattico 2D & Bilanciamento Ottimale")
-            
-            # Rendering Campo da Calcio 2D
-            ui_components.render_tactical_pitch(res["team_a"], res["team_b"], elo_ratings)
-            
-            b_col1, b_col2 = st.columns(2)
-            with b_col1:
-                ui_components.render_html(f"""
-                <div class="glass-card" style="border-top: 4px solid #FFD700;">
-                    <h4 style="color: #FFD700; margin-top: 0;">🟨 Squadra A</h4>
-                    <p><b>ELO Medio:</b> {res['elo_avg_a']} | <b>Totale:</b> {res['elo_sum_a']}</p>
-                    <ul>
-                        {''.join([f"<li><b>{p}</b> (ELO: {res['ratings_detail_a'].get(p, 1500)})</li>" for p in res['team_a']])}
-                    </ul>
-                </div>
-                """)
+            st.session_state["last_balanced"] = balanced
 
-            with b_col2:
-                ui_components.render_html(f"""
-                <div class="glass-card" style="border-top: 4px solid #00E5FF;">
-                    <h4 style="color: #00E5FF; margin-top: 0;">🟦 Squadra B</h4>
-                    <p><b>ELO Medio:</b> {res['elo_avg_b']} | <b>Totale:</b> {res['elo_sum_b']}</p>
-                    <ul>
-                        {''.join([f"<li><b>{p}</b> (ELO: {res['ratings_detail_b'].get(p, 1500)})</li>" for p in res['team_b']])}
-                    </ul>
-                </div>
-                """)
+    if "last_balanced" in st.session_state and st.session_state["last_balanced"]:
+        res = st.session_state["last_balanced"]
+        elo_ratings, _ = logic.calculate_elo_ratings(df_giocatori, df_partite)
+        
+        st.markdown("#### 📋 Schieramento Tattico 2D & Bilanciamento Ottimale")
+        
+        # Rendering Campo da Calcio 2D
+        ui_components.render_tactical_pitch(res["team_a"], res["team_b"], elo_ratings)
+        
+        b_col1, b_col2 = st.columns(2)
+        with b_col1:
+            ui_components.render_html(f"""
+            <div class="glass-card" style="border-top: 4px solid #FFD700;">
+                <h4 style="color: #FFD700; margin-top: 0;">🟨 Squadra A</h4>
+                <p><b>ELO Medio:</b> {res['elo_avg_a']} | <b>Totale:</b> {res['elo_sum_a']}</p>
+                <ul>
+                    {''.join([f"<li><b>{p}</b> (ELO: {res['ratings_detail_a'].get(p, 1500)})</li>" for p in res['team_a']])}
+                </ul>
+            </div>
+            """)
 
-            st.info(f"⚖️ **Differenza ELO Totale:** {res['diff_elo']} punti (Diff. media per giocatore: {res['diff_avg_elo']} pt)")
+        with b_col2:
+            ui_components.render_html(f"""
+            <div class="glass-card" style="border-top: 4px solid #00E5FF;">
+                <h4 style="color: #00E5FF; margin-top: 0;">🟦 Squadra B</h4>
+                <p><b>ELO Medio:</b> {res['elo_avg_b']} | <b>Totale:</b> {res['elo_sum_b']}</p>
+                <ul>
+                    {''.join([f"<li><b>{p}</b> (ELO: {res['ratings_detail_b'].get(p, 1500)})</li>" for p in res['team_b']])}
+                </ul>
+            </div>
+            """)
 
-            if st.button("🚀 Trasferisci formazioni per Registrare la Partita", use_container_width=True):
-                st.session_state["prefill_team_a"] = res["team_a"]
-                st.session_state["prefill_team_b"] = res["team_b"]
-                st.session_state["nav_target"] = "➕ Aggiungi Nuova Partita"
-                st.success("Formazioni pronte! Spostati nella sezione 'Aggiungi Nuova Partita'.")
-                st.rerun()
+        st.info(f"⚖️ **Differenza ELO Totale:** {res['diff_elo']} punti (Diff. media per giocatore: {res['diff_avg_elo']} pt)")
 
-    # 4. Pannello Gestione Sessione Admin
-    if is_admin:
-        st.markdown("---")
-        with st.expander("⚙️ Gestione Convocazione (Pannello Admin)", expanded=False):
-            c_adm1, c_adm2 = st.columns(2)
-            with c_adm1:
-                nuovo_stato = "Chiusa" if stato_str == "Aperta" else "Aperta"
-                if st.button(f"{'🔒 Chiudi' if stato_str == 'Aperta' else '🔓 Riapri'} Sessione Convocazioni", use_container_width=True):
-                    df_up = df_convocazioni.copy()
-                    idx_to_mod = df_up[df_up["id_convocazione"] == id_conv].index
-                    df_up.loc[idx_to_mod, "stato"] = nuovo_stato
-                    storage.save_convocazioni(df_up)
-                    st.success(f"Stato sessione impostato a **{nuovo_stato}**.")
-                    st.rerun()
+        if st.button("🚀 Trasferisci formazioni per Registrare la Partita", use_container_width=True):
+            st.session_state["prefill_team_a"] = res["team_a"]
+            st.session_state["prefill_team_b"] = res["team_b"]
+            st.session_state["nav_target"] = "➕ Aggiungi Nuova Partita"
+            st.success("Formazioni pronte! Spostati nella sezione 'Aggiungi Nuova Partita'.")
+            st.rerun()
 
-            with c_adm2:
-                if st.button("🧹 Resetta Lista Presenze", use_container_width=True):
-                    df_up = df_convocazioni.copy()
-                    idx_to_mod = df_up[df_up["id_convocazione"] == id_conv].index
-                    df_up.loc[idx_to_mod, "presenti"] = ""
-                    df_up.loc[idx_to_mod, "assenti"] = ""
-                    storage.save_convocazioni(df_up)
-                    st.success("Elenco presenze azzerato.")
-                    st.rerun()
 
 
 # ==============================================================================
@@ -1675,7 +1501,7 @@ def main():
         opzioni_menu = [
             "🏆 Tabellone & Classifiche",
             "🏆 Classifica Amici (Gruppo Ristretto)",
-            "📅 Convocazioni & Presenze",
+            "⚖️ Generatore Automatico Squadre Equilibrate",
             "⭐ Pagelle & MVP",
             "➕ Aggiungi Nuova Partita",
             "👤 Anagrafica Giocatori",
@@ -1727,8 +1553,8 @@ def main():
         view_dashboard(df_giocatori, df_partite, df_voti, storage_source)
     elif scelta_menu == "🏆 Classifica Amici (Gruppo Ristretto)":
         view_gruppo_ristretto(df_giocatori, df_partite, df_voti, storage_source, is_admin)
-    elif scelta_menu == "📅 Convocazioni & Presenze":
-        view_convocazioni(df_giocatori, df_partite, df_convocazioni, is_admin)
+    elif scelta_menu == "⚖️ Generatore Automatico Squadre Equilibrate":
+        view_generatore_squadre(df_giocatori, df_partite, is_admin)
     elif scelta_menu == "⭐ Pagelle & MVP":
         view_pagelle(df_giocatori, df_partite, df_voti, is_admin)
     elif scelta_menu == "➕ Aggiungi Nuova Partita":

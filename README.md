@@ -1,6 +1,6 @@
 # ⚽ Calcetto Stats & Manager - Web Application
 
-Applicazione web professionale e mobile-first, sviluppata con **Streamlit**, **Pandas** e **Google Sheets**, per la gestione completa di statistiche, logistica convocazioni, bilanciamento squadre ELO e pagelle MVP per il calcetto tra amici.
+Applicazione web professionale e mobile-first, sviluppata con **Streamlit**, **Pandas** e **Google Sheets**, per la gestione completa di statistiche, bilanciamento squadre ELO e pagelle MVP per il calcetto tra amici.
 
 ---
 
@@ -9,10 +9,9 @@ Applicazione web professionale e mobile-first, sviluppata con **Streamlit**, **P
 ### 1. 🔒 Controllo Accessi basato su PIN (RBAC)
 - **👁️ PIN Sola Lettura (`5678`):**
   - Accesso completo in sola consultazione a classifiche, rating ELO, marcatori, storico partite, pagelle ed MVP.
-  - I giocatori possono segnare la propria presenza per le partite convocate.
   - Funzioni di modifica, cancellazione e generazione squadre bloccate/nascoste.
 - **🛡️ PIN Amministratore (`8765`):**
-  - Permessi completi: registrazione e cancellazione partite con marcatori individuali, anagrafica giocatori, apertura/chiusura convocazioni, algoritmo di bilanciamento formazioni e reset dati.
+  - Permessi completi: registrazione e cancellazione partite con marcatori individuali, anagrafica giocatori, algoritmo di bilanciamento formazioni e reset dati.
 
 ---
 
@@ -32,13 +31,11 @@ Applicazione web professionale e mobile-first, sviluppata con **Streamlit**, **P
 
 ---
 
-### 3. 📅 Convocazioni & Bilanciamento Squadre
-- **Modulo Presenze:**
-  - Apertura sessione partita (data, ora, luogo).
-  - Selezione rapida presenza/assenza con contatore visivo su target di **10 convocati**.
-- **⚖️ Generatore Automatico Squadre Equilibrate (Admin):**
-  - Algoritmo combinatorio che valuta tutte le $C(10,5)/2 = 126$ suddivisioni per minimizzare la differenza di somma ELO $|\sum ELO_A - \sum ELO_B|$.
-  - Clic diretto per trasferire le formazioni nella schermata di registrazione partita.
+### 3. ⚖️ Generatore Automatico Squadre Equilibrate (Admin)
+- Sezione autonoma con selezione diretta di 10 giocatori dall'anagrafica, senza sessioni di convocazione o registrazione presenze.
+- Algoritmo combinatorio che valuta tutte le $C(10,5)/2 = 126$ suddivisioni per minimizzare la differenza di somma ELO tra le squadre.
+- Visualizzazione delle formazioni sul campo e confronto dei valori ELO.
+- Clic diretto per trasferire le formazioni nella schermata di registrazione partita.
 
 ---
 
@@ -74,7 +71,10 @@ Se colleghi l'app a Google Sheets, il foglio deve contenere **4 schede (fogli di
 | `esito` | Testo | Es. *Vittoria Squadra A*, *Pareggio*, *Vittoria Squadra B* |
 | `marcatori` | Testo (JSON) | Es. `{"Marco Rossi": 3, "Luca Bianchi": 2}` |
 
-### 3. Scheda `convocazioni`
+### 3. Scheda `convocazioni` (compatibilità archivio)
+
+La scheda è conservata per compatibilità con gli archivi esistenti; non è utilizzata dal generatore e non è più gestita dall'interfaccia.
+
 | Colonna | Tipo | Descrizione |
 |---|---|---|
 | `id_convocazione` | Numero | ID sessione convocazione |
