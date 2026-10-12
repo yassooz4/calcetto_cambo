@@ -265,6 +265,16 @@ def calculate_player_vote_stats(
     stats: Dict[str, Dict[str, Any]] = {}
     filter_set = set(str(p).strip() for p in giocatori_filtrati if str(p).strip()) if giocatori_filtrati is not None else None
 
+    if df_voti is not None and "mvp_names" in df_voti.columns:
+        for _, final in df_voti.iterrows():
+            for field, count_field in [("mvp_names", "titoli_mvp"), ("worst_names", "titoli_peggiore")]:
+                for name in final[field]:
+                    if filter_set is not None and name not in filter_set:
+                        continue
+                    entry = stats.setdefault(name, {"titoli_mvp": 0, "titoli_peggiore": 0, "media_voto": None, "totale_voti": 0})
+                    entry[count_field] += 1
+        return stats
+
     if df_voti is None or df_voti.empty or "voto" not in df_voti.columns:
         return stats
 
@@ -739,6 +749,15 @@ def calculate_match_ratings(
     if df_match_votes.empty:
         return {"has_votes": False, "ratings": pd.DataFrame(), "mvp": None, "worst": None, "comments": []}
 
+    if "mvp_names" in df_match_votes.columns:
+        final = df_match_votes.iloc[-1]
+        def award(field):
+            names = final[field + "_names"]
+            return {"giocatore": " · ".join(names), "giocatori": names, "media": None,
+                    "voti_ricevuti": int(final[field + "_votes"])} if names else None
+        return {"has_votes": True, "ratings": pd.DataFrame(), "mvp": award("mvp"),
+                "worst": award("worst"), "comments": []}
+
     df_match_votes["voto"] = pd.to_numeric(df_match_votes["voto"], errors="coerce")
     df_match_votes = df_match_votes.dropna(subset=["voto"])
 
@@ -929,11 +948,10 @@ def calculate_player_fifa_stats(
     mvp_rate = (titoli_mvp / pg) if pg > 0 else 0.0
     stat_mvp = max(45, min(99, int(round(60 + (titoli_mvp * 6.0) + (mvp_rate * 25.0)))))
 
-    # VAL: Media Voto Pagelle (6.0 -> 70, 7.5 -> 88, 8.5+ -> 99)
-    if media_voto is not None and not pd.isna(media_voto):
-        stat_val = max(45, min(99, int(round(40 + (float(media_voto) * 6.5)))))
-    else:
-        stat_val = 72
+    # Forma recente: esiti delle ultime cinque partite, senza pagelle numeriche.
+    recent_form = forma[:5]
+    form_rate = sum({"V": 1.0, "P": 0.5, "S": 0.0}[value] for value in recent_form) / len(recent_form) if recent_form else 0.5
+    stat_val = int(round(45 + 54 * form_rate))
 
     # ELO: Overall ELO stat
     stat_elo = ovr
@@ -962,7 +980,7 @@ def calculate_player_fifa_stats(
             "VIT": stat_vit,
             "GOL": stat_gol,
             "MVP": stat_mvp,
-            "VAL": stat_val,
+            "FRM": stat_val,
             "ELO": stat_elo,
             "AFF": stat_aff
         }
@@ -995,7 +1013,7 @@ def calculate_radar_metrics(
         all_players = [player_name]
 
     # Calcolo attributi di tutti per la media
-    all_attrs: Dict[str, List[int]] = {"VIT": [], "GOL": [], "MVP": [], "VAL": [], "ELO": [], "AFF": []}
+    all_attrs: Dict[str, List[int]] = {"VIT": [], "GOL": [], "MVP": [], "FRM": [], "ELO": [], "AFF": []}
     for p in all_players:
         st = calculate_player_fifa_stats(p, df_giocatori, df_partite, df_voti, elo_ratings, giocatori_filtrati)
         for k, v in st["attributes"].items():
@@ -1007,12 +1025,12 @@ def calculate_radar_metrics(
         "Vittorie (VIT)",
         "Marcature (GOL)",
         "Decisività (MVP)",
-        "Pagelle (VAL)",
+        "Forma recente (FRM)",
         "Rating (ELO)",
         "Presenze (AFF)"
     ]
 
-    keys = ["VIT", "GOL", "MVP", "VAL", "ELO", "AFF"]
+    keys = ["VIT", "GOL", "MVP", "FRM", "ELO", "AFF"]
     player_values = [p_stats["attributes"][k] for k in keys]
     avg_values = [avg_attrs[k] for k in keys]
 
@@ -1023,3 +1041,4 @@ def calculate_radar_metrics(
         "player_stats": p_stats,
         "avg_stats": avg_attrs
     }
+

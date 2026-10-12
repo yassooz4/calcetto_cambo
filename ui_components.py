@@ -1059,12 +1059,12 @@ def render_fut_card(
     pg = fifa_stats.get("pg", 0)
     gol = fifa_stats.get("gol_totali", 0)
     mvp = fifa_stats.get("titoli_mvp", 0)
-    media_voto = fifa_stats.get("media_voto")
+    peggiore = fifa_stats.get("titoli_peggiore", 0)
 
     vit_val = attrs.get("VIT", 70)
     gol_val = attrs.get("GOL", 70)
     mvp_val = attrs.get("MVP", 70)
-    val_val = attrs.get("VAL", 70)
+    val_val = attrs.get("FRM", 70)
     elo_stat = attrs.get("ELO", ovr)
     aff_val = attrs.get("AFF", 70)
 
@@ -1149,7 +1149,7 @@ def render_fut_card(
                 </div>
                 <div class="fut-attr-item">
                     <span class="fut-attr-val" style="color: #00E5FF;">{val_val}</span>
-                    <span class="fut-attr-lbl">VAL (Voto)</span>
+                    <span class="fut-attr-lbl">FRM (Forma)</span>
                 </div>
                 <div class="fut-attr-item">
                     <span class="fut-attr-val" style="color: #C084FC;">{elo_stat}</span>
@@ -1166,7 +1166,7 @@ def render_fut_card(
                 <span>Partite: <b style="color: #FFFFFF;">{pg}</b></span>
                 <span>Gol: <b style="color: #FFFFFF;">{gol}</b></span>
                 <span>MVP: <b style="color: #FFD700;">{mvp}</b></span>
-                <span>Media: <b style="color: #00E676;">{f'{media_voto:.2f}' if media_voto else 'N/D'}</b></span>
+                <span>Peggiore: <b style="color: #00E676;">{peggiore}</b></span>
             </div>
         </div>
     </div>
@@ -1814,13 +1814,12 @@ _ios_keypad_component = components.declare_component(
 
 
 def render_ios_pin_keypad(
-    admin_pin: str = "8765",
-    viewer_pin: str = "5678",
     title: str = "Inserisci il codice PIN",
     subtitle: str = "4 digit code per sbloccare l'applicazione",
     storage_source: str = "Google Sheets (Cloud)",
-    key: str = "ios_lockscreen_keypad"
-) -> Optional[str]:
+    key: str = "ios_lockscreen_keypad",
+    error_msg: str = ""
+) -> Optional[dict]:
     """
     Renderizza il Tastierino Numerico interattivo in stile Apple iOS Lockscreen (Passcode UI).
     
@@ -1837,16 +1836,17 @@ def render_ios_pin_keypad(
     starball_src = get_starball_base64()
     
     val = _ios_keypad_component(
-        admin_pin=admin_pin,
-        viewer_pin=viewer_pin,
         title=title,
         subtitle=subtitle,
         starball_src=starball_src,
         storage_source=storage_source,
-        default="",
+        error_msg=error_msg,
+        default=None,
         key=key
     )
-    return str(val).strip() if val else None
+    if isinstance(val, dict) and isinstance(val.get("pin"), str) and val.get("nonce"):
+        return val
+    return None
 
 
 def render_luxury_pin_header(
@@ -1879,6 +1879,7 @@ def render_luxury_pin_error(message: str = "Passcode non valido") -> None:
     </div>
     """
     render_html(error_html)
+
 
 
 
