@@ -848,136 +848,23 @@ def calculate_season_mvp_leaderboard(
 # ==============================================================================
 # 9. ATTRIBUTI STILE FIFA / EA SPORTS FC & METRICHE RADAR CHART (DOMAIN PURE)
 # ==============================================================================
-OVR_WEIGHTS = {"GOL": 0.45, "RIS": 0.45, "MVP": 0.10}
-OVR_GOALS_REFERENCE = 3.5
-OVR_RECENT_MATCHES = 5
-
-
-def _period_rating(records):
-    """Use the same fixed 50–99 scales for full history and recent matches.
-
-    A zero award rate is the neutral starting score (50), not a penalty.
-    Unpublished elections do not enter the award-rate denominator.
-    Keep full precision until the final displayed OVR is rounded.
-    """
-    if not records:
-        return {"ovr": None, "scores": {key: None for key in OVR_WEIGHTS},
-                "games": 0, "goals_per_match": 0.0, "points_rate": 0.0,
-                "mvp_titles": 0, "mvp_matches": 0}
-    games = len(records)
-    goals_per_match = sum(row["goals"] for row in records) / games
-    points_rate = sum(row["points"] for row in records) / (3 * games)
-    settled = [row for row in records if row["settled"]]
-    mvp_titles = sum(row["mvp"] for row in settled)
-    mvp_rate = mvp_titles / len(settled) if settled else 0.0
-    scores = {
-        "GOL": 50 + 49 * min(1.0, max(0.0, goals_per_match / OVR_GOALS_REFERENCE)),
-        "RIS": 50 + 49 * points_rate,
-        "MVP": 50 + 49 * mvp_rate,
-    }
-    return {"ovr": sum(OVR_WEIGHTS[key] * score for key, score in scores.items()),
-            "scores": scores, "games": games, "goals_per_match": goals_per_match,
-            "points_rate": points_rate, "mvp_titles": mvp_titles,
-            "mvp_matches": len(settled)}
-
-
 def calculate_player_fifa_stats(
-    player_name: str,
-    df_giocatori: pd.DataFrame,
-    df_partite: pd.DataFrame,
-    df_voti: Optional[pd.DataFrame] = None,
-    elo_ratings: Optional[Dict[str, float]] = None,
-    giocatori_filtrati: Optional[List[str]] = None
+    player_name: str, df_giocatori: pd.DataFrame, df_partite: pd.DataFrame,
+    df_voti: Optional[pd.DataFrame] = None, elo_ratings: Optional[Dict[str, float]] = None,
+    giocatori_filtrati: Optional[List[str]] = None, rating_context=None
 ) -> Dict[str, Any]:
-    """OVR = 80% full-history rating + 20% last-five rating.
-
-    Both ratings use 45% goals, 45% results and 10% published MVP titles.
-    ELO is retained as separate match-balancing information only.
-    df_partite defines the selected scope, including the Cerchia filter.
-    """
-    clean_name = str(player_name).strip()
-    if elo_ratings is None:
-        elo_ratings, _ = calculate_elo_ratings(df_giocatori, df_partite, giocatori_filtrati=giocatori_filtrati)
-    p_elo = float(elo_ratings.get(clean_name, 1500.0))
-
-    records = []
-    if not df_partite.empty:
-        ordered = df_partite.sort_values(by=["data", "id_partita"], ascending=[False, False])
-        for _, match in ordered.iterrows():
-            team_a = [name.strip() for name in str(match.get("squadra_a_giocatori", "")).split(",") if name.strip()]
-            team_b = [name.strip() for name in str(match.get("squadra_b_giocatori", "")).split(",") if name.strip()]
-            if clean_name not in team_a and clean_name not in team_b:
-                continue
-            goals_a = int(match.get("gol_squadra_a", 0))
-            goals_b = int(match.get("gol_squadra_b", 0))
-            own, other = (goals_a, goals_b) if clean_name in team_a else (goals_b, goals_a)
-            result = "V" if own > other else "P" if own == other else "S"
-            final = calculate_match_ratings(df_voti, int(match["id_partita"])) if df_voti is not None else {"has_votes": False}
-            def awarded(category):
-                award = final.get(category) or {}
-                return clean_name in award.get("giocatori", [award.get("giocatore")])
-            records.append({"match_id": int(match["id_partita"]), "result": result,
-                            "points": {"V": 3, "P": 1, "S": 0}[result],
-                            "goals": parse_marcatori(match.get("marcatori", "")).get(clean_name, 0),
-                            "settled": final["has_votes"], "mvp": awarded("mvp"),
-                            "worst": awarded("worst")})
-
-    overall = _period_rating(records)
-    recent = _period_rating(records[:OVR_RECENT_MATCHES])
-    pg = len(records)
-    ovr = int(round(0.80 * overall["ovr"] + 0.20 * recent["ovr"])) if pg else None
-    attributes = {key: int(round(score)) if score is not None else None
-                  for key, score in overall["scores"].items()}
-    attributes["FRM"] = int(round(recent["ovr"])) if pg else None
-    wins = sum(row["result"] == "V" for row in records)
-    return {
-        "giocatore": clean_name, "ovr": ovr, "elo": round(p_elo, 1),
-        "pg": pg, "vittorie": wins,
-        "pareggi": sum(row["result"] == "P" for row in records),
-        "sconfitte": sum(row["result"] == "S" for row in records),
-        "win_rate": round(100 * wins / pg, 1) if pg else 0.0,
-        "punti": sum(row["points"] for row in records),
-        "gol_totali": sum(row["goals"] for row in records),
-        "media_gol": round(overall["goals_per_match"], 2),
-        "titoli_mvp": overall["mvp_titles"],
-        "titoli_peggiore": sum(row["worst"] for row in records),
-        "media_voto": None, "forma": [row["result"] for row in records],
-        "attributes": attributes, "provisional": 0 < pg < OVR_RECENT_MATCHES,
-        "ovr_details": {"overall": overall, "recent": recent,
-                        "goal_reference": OVR_GOALS_REFERENCE, "weights": dict(OVR_WEIGHTS)},
-    }
+    """Compatibility entry point for the seasonal Rating Cambo model."""
+    from ratings import calculate_player_stats
+    return calculate_player_stats(player_name, df_giocatori, df_partite, df_voti,
+                                  elo_ratings, giocatori_filtrati, rating_context)
 
 
 def calculate_radar_metrics(
-    player_name: str,
-    df_giocatori: pd.DataFrame,
-    df_partite: pd.DataFrame,
-    df_voti: Optional[pd.DataFrame] = None,
-    elo_ratings: Optional[Dict[str, float]] = None,
-    giocatori_filtrati: Optional[List[str]] = None
+    player_name: str, df_giocatori: pd.DataFrame, df_partite: pd.DataFrame,
+    df_voti: Optional[pd.DataFrame] = None, elo_ratings: Optional[Dict[str, float]] = None,
+    giocatori_filtrati: Optional[List[str]] = None, rating_context=None
 ) -> Dict[str, Any]:
-    """Compare the agreed OVR indices with players who have actually played."""
-    p_stats = calculate_player_fifa_stats(
-        player_name, df_giocatori, df_partite, df_voti, elo_ratings, giocatori_filtrati
-    )
-    if giocatori_filtrati is not None:
-        all_players = list(giocatori_filtrati)
-    elif not df_giocatori.empty and "nome_completo" in df_giocatori.columns:
-        all_players = sorted(df_giocatori["nome_completo"].dropna().unique().tolist())
-    else:
-        all_players = [player_name]
-    keys = ["GOL", "RIS", "MVP", "FRM"]
-    all_attrs = {key: [] for key in keys}
-    for name in all_players:
-        stats = calculate_player_fifa_stats(name, df_giocatori, df_partite, df_voti, elo_ratings, giocatori_filtrati)
-        if stats["pg"]:
-            for key in keys:
-                all_attrs[key].append(stats["attributes"][key])
-    avg_attrs = {key: round(sum(values) / len(values), 1) if values else None
-                 for key, values in all_attrs.items()}
-    return {
-        "categories": ["Gol · 45%", "Risultati · 45%", "MVP · 10%", "Rendimento recente"],
-        "player_values": [p_stats["attributes"][key] for key in keys] if p_stats["pg"] else [],
-        "avg_values": [avg_attrs[key] for key in keys] if p_stats["pg"] else [],
-        "player_stats": p_stats, "avg_stats": avg_attrs,
-    }
+    """Compatibility entry point: comparison has only the three components."""
+    from ratings import calculate_comparison
+    return calculate_comparison(player_name, df_giocatori, df_partite, df_voti,
+                                elo_ratings, giocatori_filtrati, rating_context)

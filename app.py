@@ -15,6 +15,8 @@ import streamlit as st
 
 # Import dei moduli dedicati (Clean Architecture / DDD)
 import logic
+import ratings
+import rating_ui
 import storage
 import ui_components
 import voting
@@ -284,51 +286,21 @@ def view_dashboard(df_giocatori: pd.DataFrame, df_partite: pd.DataFrame, df_voti
                 if not found:
                     st.info(f"Nessuno scontro diretto registrato tra **{p1_sel}** e **{p2_sel}**.")
 
-    # TAB 6: SCHEDA SINGOLO GIOCATORE (FUT CARD & RADAR CHART)
+    # TAB 6: SCHEDA GIOCATORE — OVR, CONFRONTO E ANDAMENTO
     with tab_spotlight:
-        st.markdown("### 🎴 Scheda Giocatore & FUT Ultimate Card")
-        st.caption("OVR: 45% gol, 45% risultati e 10% MVP · 80% rendimento complessivo e 20% ultime cinque partite.")
+        st.markdown("### 🎴 Scheda Giocatore · Rating Cambo")
+        st.caption("Gol, risultati e MVP · Stima prudente con pochi dati · Forma delle ultime cinque partite")
         lista_giocatori = sorted(df_giocatori["nome_completo"].dropna().unique().tolist()) if not df_giocatori.empty else []
-        
         if not lista_giocatori:
             st.info("Nessun giocatore registrato.")
         else:
-            selected_player = st.selectbox("Seleziona un giocatore per visualizzare la Scheda FUT:", options=lista_giocatori, key="spotlight_player_sel")
-            
-            if selected_player:
-                fifa_stats = logic.calculate_player_fifa_stats(
-                    selected_player, df_giocatori, df_partite, df_voti, elo_ratings
-                )
-                radar_data = logic.calculate_radar_metrics(
-                    selected_player, df_giocatori, df_partite, df_voti, elo_ratings
-                )
-                is_in_cerchia = (selected_player in gruppo_set)
-
-                col_fut, col_radar = st.columns([1, 1.2])
-
-                with col_fut:
-                    ui_components.render_fut_card(selected_player, fifa_stats, is_cerchia=is_in_cerchia)
-                    ui_components.render_ovr_breakdown(fifa_stats)
-
-                with col_radar:
-                    st.markdown("#### 📊 Rendimento (vs Media Giocatori Attivi)")
-                    ui_components.render_player_radar_chart(selected_player, radar_data)
-
-                    st.markdown("#### 🏃 Forma Recente (Ultime sfide)")
-                    forma = fifa_stats.get("forma", [])
-                    if forma:
-                        badges_html = ""
-                        for res in forma[:5]:
-                            if res == "V":
-                                badges_html += "<span class='badge-v'>V</span>"
-                            elif res == "P":
-                                badges_html += "<span class='badge-p'>P</span>"
-                            else:
-                                badges_html += "<span class='badge-s'>S</span>"
-                        ui_components.render_html(badges_html)
-                        st.caption("Dalla più recente (sinistra) alla meno recente (destra).")
-                    else:
-                        st.caption("Nessuna partita disputata finora.")
+            selected_player = st.selectbox("Seleziona un giocatore:", options=lista_giocatori, key="spotlight_player_sel")
+            context = ratings.build_context(df_giocatori, df_partite, df_voti)
+            stats = ratings.calculate_player_stats(selected_player, df_giocatori, df_partite, df_voti,
+                                                    elo_ratings, rating_context=context)
+            comparison = ratings.calculate_comparison(selected_player, df_giocatori, df_partite, df_voti,
+                                                        elo_ratings, rating_context=context)
+            rating_ui.render_player_sheet(selected_player, stats, comparison, is_cerchia=selected_player in gruppo_set)
 
 
 # ==============================================================================
@@ -597,45 +569,18 @@ def view_gruppo_ristretto(
                 if not found_g:
                     st.info(f"Nessuno scontro diretto registrato tra **{p1_g}** e **{p2_g}**.")
 
-    # TAB 6: SCHEDA MEMBRO (FUT CARD & RADAR CERCHIA)
+    # TAB 6: SCHEDA MEMBRO — FILTRO LOCALE, FORZA PREPARTITA DELL'ARCHIVIO COMPLETO
     with tab_spot_g:
-        st.markdown("### 🎴 Scheda Membro Cerchia & FUT Ultimate Card")
-        st.caption("OVR: 45% gol, 45% risultati e 10% MVP · 80% rendimento complessivo e 20% ultime cinque partite.")
+        st.markdown("### 🎴 Scheda Membro Cerchia · Rating Cambo")
+        st.caption("Gol, risultati e MVP · Stima prudente con pochi dati · Forma delle ultime cinque partite")
         selected_member = st.selectbox("Seleziona un membro del gruppo:", options=gruppo_names, key="spotlight_member_sel")
-
         if selected_member:
-            fifa_stats_g = logic.calculate_player_fifa_stats(
-                selected_member, df_giocatori, df_partite_calc, df_voti, elo_ratings_c, giocatori_filtrati=gruppo_names
-            )
-            radar_data_g = logic.calculate_radar_metrics(
-                selected_member, df_giocatori, df_partite_calc, df_voti, elo_ratings_c, giocatori_filtrati=gruppo_names
-            )
-
-            col_fut_g, col_radar_g = st.columns([1, 1.2])
-
-            with col_fut_g:
-                ui_components.render_fut_card(selected_member, fifa_stats_g, is_cerchia=True)
-                ui_components.render_ovr_breakdown(fifa_stats_g)
-
-            with col_radar_g:
-                st.markdown("#### 📊 Rendimento (vs Media Membri Attivi)")
-                ui_components.render_player_radar_chart(selected_member, radar_data_g)
-
-                st.markdown("#### 🏃 Forma Recente (Partite Cerchia)")
-                forma_g = fifa_stats_g.get("forma", [])
-                if forma_g:
-                    b_html = ""
-                    for res in forma_g[:5]:
-                        if res == "V":
-                            b_html += "<span class='badge-v'>V</span>"
-                        elif res == "P":
-                            b_html += "<span class='badge-p'>P</span>"
-                        else:
-                            b_html += "<span class='badge-s'>S</span>"
-                    ui_components.render_html(b_html)
-                    st.caption("Dalla più recente (sinistra) alla meno recente (destra).")
-                else:
-                    st.caption("Nessuna partita disputata finora per questo membro.")
+            context = ratings.build_context(df_giocatori, df_partite, df_voti)
+            stats = ratings.calculate_player_stats(selected_member, df_giocatori, df_partite_calc, df_voti,
+                                                    elo_ratings_c, giocatori_filtrati=gruppo_names, rating_context=context)
+            comparison = ratings.calculate_comparison(selected_member, df_giocatori, df_partite_calc, df_voti,
+                                                        elo_ratings_c, giocatori_filtrati=gruppo_names, rating_context=context)
+            rating_ui.render_player_sheet(selected_member, stats, comparison, is_cerchia=True)
 
 
 # ==============================================================================
@@ -689,7 +634,8 @@ def view_generatore_squadre(
         st.markdown("#### 📋 Schieramento Tattico 2D & Bilanciamento Ottimale")
         
         # Rendering Campo da Calcio 2D
-        player_ovrs = {name: logic.calculate_player_fifa_stats(name, df_giocatori, df_partite, df_voti, elo_ratings)["ovr"]
+        context = ratings.build_context(df_giocatori, df_partite, df_voti)
+        player_ovrs = {name: ratings.calculate_player_stats(name, df_giocatori, df_partite, df_voti, elo_ratings, rating_context=context, include_history=False)["ovr"]
                        for name in res["team_a"] + res["team_b"]}
         ui_components.render_tactical_pitch(res["team_a"], res["team_b"], elo_ratings, player_ovrs=player_ovrs)
         st.caption("I numeri sul campo sono gli OVR delle carte. Il bilanciamento delle squadre usa l'ELO.")
