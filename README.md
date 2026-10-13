@@ -22,14 +22,17 @@ Applicazione web professionale e mobile-first, sviluppata con **Streamlit**, **P
 - **⚽ Classifica Marcatori:**
   - Conteggio rigoroso dei soli gol individuali realizzati (esclusi gli assist).
   - Metriche: Gol Totali, Partite Giocate (PG), Media Gol a Partita.
-- **🎴 OVR delle carte — Rating Cambo:**
-  - `OVR = round(0.80 × rendimento complessivo + 0.20 × rendimento ultime 5 partite giocate)`.
-  - Entrambi i rendimenti usano gli stessi pesi: `45% GOL + 45% RIS + 10% MVP`, con precisione completa fino all'arrotondamento dell'OVR finale.
-  - Indici sulla scala 50–99: `GOL = 50 + 49 × min(media gol / 3.5, 1)`; `RIS = 50 + 49 × punti / (3 × partite giocate)`; `MVP = 50 + 49 × titoli / partite con risultato MVP pubblicato`. Vittoria 3 punti, pareggio 1, sconfitta 0. Il riferimento di 3,5 gol è una regola scelta per questa scala, non uno standard statistico.
-  - Le votazioni aperte non entrano nel denominatore MVP; in assenza di risultati pubblicati l'indice resta al valore base 50, senza bonus. I titoli ex aequo e quelli storici conservati sono inclusi.
-  - Senza partite la carta mostra “Non ancora valutato” e nessun numero inventato. Con meno di 5 presenze l'OVR è provvisorio; questa è una soglia di presentazione e non una certificazione di affidabilità statistica.
-  - Il filtro della cerchia si applica a tutti i dati, inclusi i titoli MVP. La media del radar esclude chi non ha giocato nel periodo selezionato.
-  - ELO, presenze, titoli di peggiore e assist non fanno parte dell'OVR. Le formazioni mostrano lo stesso OVR delle carte; il bilanciamento continua a usare l'ELO.
+- **🎴 OVR delle carte — Rating Cambo (`ratings.py`, `rating_ui.py`):**
+  - `OVR = round(0.80 × rendimento complessivo + 0.20 × rendimento ultime 5 partite giocate)`. Entrambi usano `45% GOL + 45% RIS + 10% MVP`, con precisione completa fino all'arrotondamento finale.
+  - La scala è 50–99. La calibrazione pubblica della stagione 2026/27 è congelata in `rating_calibration.json`: 7 partite, 70 presenze, 21 giocatori, 11 con almeno tre presenze. Il 95° percentile delle loro medie gol, arrotondato per eccesso a 0,25, dà **3,25 gol/partita** come riferimento. Le medie iniziali sono 139/70 gol/partita e il 50% dei punti possibili. Sono regole di progetto, non standard scientifici.
+  - **Pochi dati:** ogni periodo usa 5 partite equivalenti alla media iniziale per attenuare gol e risultati: `gol_stimati = (gol + 5 × media_iniziale_gol) / (PG + 5)`; `risultati_stimati = (punti_corretti / 3 + 5 × media_iniziale_risultati) / (PG + 5)`. Le presenze non sono un attributo e non danno bonus.
+  - **Difficoltà:** il contesto rigioca l'archivio completo e registra la probabilità ELO prima di ciascuna gara. `punti_corretti = punti × (1.5 − probabilità_prepartita)`; vittoria 3, pareggio 1, sconfitta 0. Vittorie da sfavoriti pesano di più. Gli aggiornamenti ELO mantengono algoritmo, scarto reti e arrotondamento esistenti; il generatore continua a bilanciare tramite ELO.
+  - Indici: `GOL = 50 + 49 × clamp(gol_stimati / riferimento, 0, 1)`; `RIS = 50 + 49 × clamp(risultati_stimati, 0, 1)`; `MVP = 50 + 49 × titoli / (partite con MVP pubblicato + 5)`. Un MVP su una votazione dà un indice di circa 58, non 99. Votazioni aperte escluse, nessun risultato significa nessun bonus. Titoli ex aequo e titoli storici pubblicati inclusi.
+  - **Scheda:** tre componenti con medie gol, percentuale vittorie e MVP su partite votate; tre barre di confronto con la media dei giocatori attivi. La forma recente è un indicatore separato, già compreso nell'OVR, e non un quarto asse.
+  - **Andamento:** OVR ricostruito dopo ogni partita, variazione dall'ultima gara e spiegazione dei componenti che la determinano. Si applicano il modello corrente e i risultati MVP oggi pubblicati: correggere partite o riaprire votazioni può cambiare anche il passato. Non sono istantanee salvate all'epoca delle gare.
+  - Senza partite: “Non ancora valutato”, nessun numero inventato. Sotto 5 presenze: OVR provvisorio; superare la soglia non certifica affidabilità statistica. Il confronto esclude chi non ha giocato.
+  - Il filtro della cerchia si applica a statistiche, titoli, periodo recente e andamento. La scala stagionale e la forza ELO prepartita restano quelle dell'archivio completo. Non entrano assist, assenze o titoli di peggiore. Difesa e contributo dei portieri non sono direttamente misurati.
+  - **Nuova calibrazione:** `ratings.calibrate_season(df_partite, stagione, data)` produce un nuovo snapshot pubblico con soli aggregati e ID partita. Salvare intenzionalmente il risultato in `rating_calibration.json` per una nuova stagione; non ricalibrare a ogni nuova gara, filtro o apertura della pagina. Nessun dato privato o credenziale entra nello snapshot.
 - **🔥 Strisce di Vittorie Consecutive:**
   - Tracciamento della striscia vincente attualmente **aperta** e del **record storico personale**.
 - **🤝 Coppie d'Oro & ⚔️ Rivali:**
