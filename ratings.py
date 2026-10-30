@@ -85,7 +85,7 @@ def build_context(players, matches, finals=None, calibration=None):
     rounding and goal-margin multiplier). Final ELO is never used as hindsight.
     Build with the full archive even when the displayed card has a Cerchia filter.
     """
-    from logic import parse_marcatori, calculate_match_ratings
+    from logic import parse_marcatori, calculate_match_ratings, has_scorer_detail
     config = _validated_calibration(calibration)
     elo, by_player = {}, {}
     for _, match in _ordered(matches).iterrows():
@@ -102,6 +102,7 @@ def build_context(players, matches, finals=None, calibration=None):
         ga, gb = int(match["gol_squadra_a"]), int(match["gol_squadra_b"])
         match_id = int(match["id_partita"])
         goals = parse_marcatori(match.get("marcatori", ""))
+        has_detail = has_scorer_detail(ga, gb, match.get("marcatori", ""))
         final = calculate_match_ratings(finals, match_id) if finals is not None else {"has_votes": False}
         mvp = final.get("mvp") or {}
         mvp_names = mvp.get("giocatori", [mvp.get("giocatore")])
@@ -117,7 +118,7 @@ def build_context(players, matches, finals=None, calibration=None):
                 by_player.setdefault(name, []).append({"match_id": match_id, "date": str(match["data"]),
                     "result": result, "points": points, "adjusted_points": points * factor,
                     "expected": expected, "difficulty_factor": factor,
-                    "goals": goals.get(name, 0), "settled": settled,
+                    "goals": goals.get(name, 0), "goals_known": has_detail, "settled": settled,
                     "mvp": settled and name in mvp_names, "worst": name in worst_names})
         score_a = 1.0 if ga > gb else 0.0 if ga < gb else 0.5
         delta = 32 * (1 + math.log(1 + abs(ga - gb))) * (score_a - expected_a)
@@ -140,9 +141,12 @@ def period_rating(records, calibration):
                 "mvp_matches": 0, "mvp_titles": 0, "goals_per_match": 0.0,
                 "points_rate": 0.0, "adjusted_points": 0.0}
     prior = calibration["prior_matches"]
-    goals = sum(row["goals"] for row in records)
+    # Le gare con solo il risultato non hanno gol individuali: non entrano nella media gol.
+    goal_records = [row for row in records if row.get("goals_known", True)]
+    goal_games = len(goal_records)
+    goals = sum(row["goals"] for row in goal_records)
     adjusted = sum(row["adjusted_points"] for row in records)
-    estimated_goals = (goals + prior * calibration["goal_prior"]) / (n + prior)
+    estimated_goals = (goals + prior * calibration["goal_prior"]) / (goal_games + prior)
     estimated_results = (adjusted / 3 + prior * calibration["result_prior"]) / (n + prior)
     settled = [row for row in records if row["settled"]]
     titles = sum(row["mvp"] for row in settled)
@@ -152,7 +156,7 @@ def period_rating(records, calibration):
     scores = {"GOL": 50 + 49 * clamp(estimated_goals / calibration["goal_reference"]),
               "RIS": 50 + 49 * clamp(estimated_results), "MVP": 50 + 49 * clamp(estimated_mvp)}
     return {"ovr": sum(WEIGHTS[key] * value for key, value in scores.items()),
-            "scores": scores, "games": n, "goals_per_match": goals / n,
+            "scores": scores, "games": n, "goals_per_match": goals / goal_games if goal_games else 0.0,
             "estimated_goals": estimated_goals, "estimated_results": estimated_results,
             "points_rate": sum(row["points"] for row in records) / (3 * n),
             "adjusted_points": adjusted, "mvp_titles": titles, "mvp_matches": len(settled),

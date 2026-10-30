@@ -54,6 +54,18 @@ def parse_marcatori(marcatori_raw: Any) -> Dict[str, int]:
     return res
 
 
+def has_scorer_detail(gol_a: Any, gol_b: Any, marcatori_raw: Any) -> bool:
+    """False se la gara ha gol ma nessun marcatore registrato (solo risultato).
+
+    Una gara 0-0 non ha marcatori da registrare, quindi il dettaglio e' completo.
+    """
+    try:
+        total = int(gol_a) + int(gol_b)
+    except (TypeError, ValueError):
+        return True
+    return total == 0 or sum(parse_marcatori(marcatori_raw).values()) > 0
+
+
 def serialize_marcatori(marcatori_dict: Dict[str, int]) -> str:
     """Serializza il dizionario marcatori in formato JSON compatto."""
     clean_dict = {k.strip(): int(v) for k, v in marcatori_dict.items() if int(v) > 0 and k.strip()}
@@ -469,12 +481,17 @@ def calculate_scorers(
             raw_b = str(match.get("squadra_b_giocatori", ""))
             all_players = [p.strip() for p in (raw_a + "," + raw_b).split(",") if p.strip()]
 
+            # Le gare registrate solo con il risultato non contano nelle medie gol.
+            has_detail = has_scorer_detail(match.get("gol_squadra_a", 0), match.get("gol_squadra_b", 0), match.get("marcatori", ""))
             for p in set(all_players):
                 if filter_set is not None and p not in filter_set:
                     continue
-                pg_dict[p] = pg_dict.get(p, 0) + 1
+                if has_detail:
+                    pg_dict[p] = pg_dict.get(p, 0) + 1
                 if p not in gol_dict:
                     gol_dict[p] = 0
+                if p not in pg_dict:
+                    pg_dict[p] = 0
 
             # Parsing marcatori
             marcatori_raw = match.get("marcatori", "")

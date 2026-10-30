@@ -752,7 +752,15 @@ def view_add_match(
 
     # Inserimento Marcatori Individuali
     marcatori_dict = {}
-    if len(sq_a) == 5 and len(sq_b) == 5:
+    registra_marcatori = st.toggle(
+        "Registra i marcatori",
+        value=True,
+        key="registra_marcatori_nuova",
+        help="Disattiva per inserire la gara con il solo risultato, senza i gol dei singoli giocatori.",
+    )
+    if not registra_marcatori:
+        st.caption("Gara con solo risultato: non entra nelle medie gol di classifica marcatori e OVR.")
+    if registra_marcatori and len(sq_a) == 5 and len(sq_b) == 5:
         st.markdown("##### 🎯 Dettaglio Gol per Giocatore:")
         col_m_a, col_m_b = st.columns(2)
         with col_m_a:
@@ -782,7 +790,7 @@ def view_add_match(
             errori.append(f"I seguenti giocatori sono in entrambe le squadre: {', '.join(duplicati)}.")
 
         # Validazione quadratura gol individuali vs gol totali
-        if len(sq_a) == 5 and len(sq_b) == 5:
+        if registra_marcatori and len(sq_a) == 5 and len(sq_b) == 5:
             sum_gol_a = sum(marcatori_dict.get(p, 0) for p in sq_a)
             sum_gol_b = sum(marcatori_dict.get(p, 0) for p in sq_b)
 
@@ -1008,6 +1016,13 @@ def view_match_history(
             gol_b_curr = int(match_curr.get("gol_squadra_b", 0))
             marcatori_curr = logic.parse_marcatori(match_curr.get("marcatori", ""))
 
+            registra_marcatori_mod = st.toggle(
+                "Registra i marcatori",
+                value=logic.has_scorer_detail(gol_a_curr, gol_b_curr, match_curr.get("marcatori", "")),
+                key=f"edit_registra_marcatori_{id_partita_da_modificare}",
+                help="Disattiva per tenere la gara con il solo risultato, senza i gol dei singoli giocatori.",
+            )
+
             # Form di modifica
             with st.form(f"form_edit_match_{id_partita_da_modificare}", clear_on_submit=False):
                 data_mod = st.date_input("📅 Data Partita", value=data_curr, key=f"edit_data_{id_partita_da_modificare}")
@@ -1042,17 +1057,19 @@ def view_match_history(
 
                 st.markdown("##### 🎯 Assegnazione Gol Individuali Marcatori")
                 marcatori_mod_dict = {}
+                if not registra_marcatori_mod:
+                    st.caption("Solo risultato: i gol individuali non verranno salvati.")
 
                 col_gm_a, col_gm_b = st.columns(2)
                 with col_gm_a:
                     st.markdown("###### Gol Giocatori Squadra A:")
-                    for p in sq_a_mod:
+                    for p in (sq_a_mod if registra_marcatori_mod else []):
                         val_prev = int(marcatori_curr.get(p, 0))
                         marcatori_mod_dict[p] = st.number_input(f"Gol di {p}", min_value=0, max_value=30, value=val_prev, step=1, key=f"edit_goals_a_{id_partita_da_modificare}_{p}")
 
                 with col_gm_b:
                     st.markdown("###### Gol Giocatori Squadra B:")
-                    for p in sq_b_mod:
+                    for p in (sq_b_mod if registra_marcatori_mod else []):
                         val_prev = int(marcatori_curr.get(p, 0))
                         marcatori_mod_dict[p] = st.number_input(f"Gol di {p}", min_value=0, max_value=30, value=val_prev, step=1, key=f"edit_goals_b_{id_partita_da_modificare}_{p}")
 
